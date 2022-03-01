@@ -1,1 +1,2 @@
 Flask==2.0.3
+pyOpenSSL==22.0.0 
