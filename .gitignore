@@ -28,6 +28,9 @@
 *.so.*
 *.dylib
 
+# vim swap files
+*.swp
+
 # Executables
 *.exe
 *.out
