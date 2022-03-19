@@ -15,14 +15,4 @@ char *request_header(const char* name);
 
 void route();
 
-// some interesting macro for `route()`
-#define ROUTE_START()       if (0) {
-#define ROUTE(METHOD,URI)   } else if (strcmp(URI,uri)==0&&strcmp(METHOD,method)==0) {
-#define ROUTE_GET(URI)      ROUTE("GET", URI) 
-#define ROUTE_POST(URI)     ROUTE("POST", URI) 
-#define ROUTE_END()         } else printf(\
-                                "HTTP/1.1 500 Not Handled\r\n\r\n" \
-                                "The server has no handler to the request.\r\n" \
-                            );
-
 #endif

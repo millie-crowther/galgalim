@@ -25,8 +25,18 @@ static int clientfd;
 
 static char *buf;
 
-void serve_forever(const char *PORT)
-{
+
+void route(char* method, char* uri, int payload_size){
+    if (strcmp("/index", uri) == 0 && strcmp("GET", method) == 0){
+        printf("HTTP/1.1 200 OK\r\n\r\n");
+        printf("Hello! You are using %s", request_header("User-Agent"));
+        return;
+    }
+    
+    printf("HTTP/1.1 500 Not Handled\r\n\r\n The server has no handler to the request.\r\n");
+}
+
+void serve_forever(const char *PORT){
     struct sockaddr_in clientaddr;
     socklen_t addrlen;
     char c;    
