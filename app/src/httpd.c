@@ -24,13 +24,6 @@ static header_t reqhdr[17] = { {"\0", "\0"} };
 static int clientfd;
 
 static char *buf;
-char    *method,    // "GET" or "POST"
-        *uri,       // "/index.html" things before '?'
-        *qs,        // "a=1&b=2"     things after  '?'
-        *prot;      // "HTTP/1.1"
-
-char    *payload;     // for POST
-int      payload_size;
 
 void serve_forever(const char *PORT)
 {
@@ -144,6 +137,15 @@ void respond(int n)
         fprintf(stderr,"Client disconnected upexpectedly.\n");
     else    // message received
     {
+
+        char   
+            *method,    // "GET" or "POST"
+            *uri,       // "/index.html" things before '?'
+            *qs,        // "a=1&b=2"     things after  '?'
+            *prot;      // "HTTP/1.1"
+
+        char *payload;     // for POST
+        int payload_size;
         buf[rcvd] = '\0';
 
         method = strtok(buf,  " \t\r\n");
@@ -183,7 +185,7 @@ void respond(int n)
         close(clientfd);
 
         // call router
-        route();
+        route(method, uri, payload_size);
 
         // tidy up
         fflush(stdout);
