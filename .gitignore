@@ -60,4 +60,8 @@ CMakeFiles
 CMakeCache.txt
 Makefile
 
+# macos stuff
 .DS_Store
+
+# binary
+galgalim
