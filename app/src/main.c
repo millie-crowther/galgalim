@@ -1,5 +1,7 @@
 #include "httpd.h"
 
+
+
 int main(int c, char** v)
 {
     serve_forever("12913");
@@ -8,6 +10,13 @@ int main(int c, char** v)
 
 void route()
 {
+   char    *method,    // "GET" or "POST"
+         *uri,       // "/index.html" things before '?'
+         *qs,        // "a=1&b=2"     things after  '?'
+         *prot;      // "HTTP/1.1"
+
+   char    *payload;     // for POST
+   int      payload_size;
     ROUTE_START()
 
     ROUTE_GET("/")
