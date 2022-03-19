@@ -1,7 +1,7 @@
 project (galgalim C)
 
 set(SOURCES
-    httpd.c
+    http.c
     main.c
 )
 

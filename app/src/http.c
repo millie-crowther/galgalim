@@ -1,4 +1,4 @@
-#include "httpd.h"
+#include "http.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -24,7 +24,7 @@ static header_t reqhdr[17] = { {"\0", "\0"} };
 static int clientfd;
 
 static char *buf;
-
+char *request_header(const char* name);
 
 void route(char* method, char* uri, int payload_size){
     if (strcmp("/index", uri) == 0 && strcmp("GET", method) == 0){
