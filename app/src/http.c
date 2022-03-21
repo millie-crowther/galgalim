@@ -12,6 +12,9 @@
 #include <fcntl.h>
 #include <signal.h>
 
+#include "array.h"
+#include "string.h"
+
 #define CONNMAX 1000
 
 static int listenfd, clients[CONNMAX];
@@ -19,7 +22,18 @@ static void error(char *);
 static void startServer(const char *);
 static void respond(int);
 
-typedef struct { char *name, *value; } header_t;
+typedef struct header_t {
+    char * name;
+    char * value;
+} header_t;
+
+typedef struct header2_t {
+    string_t name;
+    string_t value;
+} header2_t;
+typedef array_t(header2_t) header_array_t;
+static header_array_t request_headers = array_new(header2_t);
+
 static header_t reqhdr[17] = { {"\0", "\0"} };
 static int clientfd;
 
