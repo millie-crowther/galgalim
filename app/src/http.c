@@ -37,7 +37,6 @@ static header_array_t request_headers = array_new(header2_t);
 static header_t reqhdr[17] = { {"\0", "\0"} };
 static int clientfd;
 
-static char *buf;
 char *request_header(const char* name);
 
 void route(char* method, char* uri, int payload_size){
@@ -152,8 +151,9 @@ void respond(int n)
     int rcvd, fd, bytes_read;
     char *ptr;
 
-    buf = malloc(65535);
-    rcvd=recv(clients[n], buf, 65535, 0);
+    int buffer_size = 65535;
+    char * buf = malloc(buffer_size);
+    rcvd=recv(clients[n], buf, buffer_size, 0);
 
     if (rcvd<0)    // receive error
         fprintf(stderr,("recv() error\n"));

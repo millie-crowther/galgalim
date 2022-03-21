@@ -1,6 +1,7 @@
 #ifndef STRING_H
 #define STRING_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 typedef struct string_t {
@@ -10,7 +11,9 @@ typedef struct string_t {
 
 #define empty_string (string_t){.chars = "", .size = 0}
 
-int string_find_substring(const string_t string, const string_t substring);
+bool string_equals(const string_t a, const string_t b);
+string_t string_literal(const char * string);
+uint32_t string_find_substring(const string_t string, const string_t substring);
 void string_split(const string_t string, const string_t delimiter, string_t * head, string_t * tail);
 
 #endif
