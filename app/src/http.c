@@ -39,8 +39,8 @@ static int clientfd;
 
 char *request_header(const char* name);
 
-void route(char* method, char* uri, int payload_size){
-    if (strcmp("/index", uri) == 0 && strcmp("GET", method) == 0){
+void route(string_t method, string_t uri){
+    if (string_equals(uri, string_literal("/index")) && string_equals(method, string_literal("GET"))){
         printf("HTTP/1.1 200 OK\r\n\r\n");
         printf("Hello! You are using %s", request_header("User-Agent"));
         return;
@@ -152,8 +152,10 @@ void respond(int n)
     char *ptr;
 
     int buffer_size = 65535;
-    char * buf = malloc(buffer_size);
-    rcvd=recv(clients[n], buf, buffer_size, 0);
+    string_t buffer;
+    char * x = malloc(buffer_size);
+    rcvd=recv(clients[n], x, buffer_size, 0);
+    buffer.chars = x;
 
     if (rcvd<0)    // receive error
         fprintf(stderr,("recv() error\n"));
@@ -161,47 +163,64 @@ void respond(int n)
         fprintf(stderr,"Client disconnected upexpectedly.\n");
     else    // message received
     {
-
+        buffer.size = rcvd;
         char   
-            *method,    // "GET" or "POST"
-            *uri,       // "/index.html" things before '?'
-            *qs,        // "a=1&b=2"     things after  '?'
-            *prot;      // "HTTP/1.1"
+            *qs;        // "a=1&b=2"     things after  '?'
 
         char *payload;     // for POST
         int payload_size;
-        buf[rcvd] = '\0';
 
-        method = strtok(buf,  " \t\r\n");
-        uri    = strtok(NULL, " \t");
-        prot   = strtok(NULL, " \t\r\n"); 
+        string_t header_string;
 
-        fprintf(stderr, "\x1b[32m + [%s] %s\x1b[0m\n", method, uri);
+        // see RFC 2616, Section 5.1
+        // https://www.rfc-editor.org/rfc/rfc2616#section-5.1
+        string_t request_line_string;
+        string_split(buffer, '\n', &request_line_string, &header_string);
+        request_line_string = string_strip(request_line_string);
+
+        string_t method;
+        string_split(request_line_string, ' ', &method, &request_line_string);
+
+        string_t uri;
+        string_split(request_line_string, ' ', &uri, &request_line_string);
+
+        string_t protocol;
+        string_split(request_line_string, ' ', &protocol, &request_line_string);
+
+
+        // string_split(buffer, string_literal("\n"), &method, &substring);
+        // string_split(substring, string_literal(" \t"), &uri, &substring);
+        // string_split(substring, string_literal(" \t\r\n"), &protocol, &substring);
+        // method = strtok(buf,  " \t\r\n");
+        // uri    = strtok(NULL, " \t");
+        // prot   = strtok(NULL, " \t\r\n"); 
+
+        // fprintf(stderr, "\x1b[32m + [%s] %s\x1b[0m\n", method, uri);
         
-        if (qs = strchr(uri, '?'))
-        {
-            *qs++ = '\0'; //split URI
-        } else {
-            qs = uri - 1; //use an empty string
-        }
+        // if (qs = strchr(uri, '?'))
+        // {
+        //     *qs++ = '\0'; //split URI
+        // } else {
+        //     qs = uri - 1; //use an empty string
+        // }
 
-        header_t *h = reqhdr;
-        char *t, *t2;
-        while(h < reqhdr+16) {
-            char *k,*v,*t;
-            k = strtok(NULL, "\r\n: \t"); if (!k) break;
-            v = strtok(NULL, "\r\n");     while(*v && *v==' ') v++;
-            h->name  = k;
-            h->value = v;
-            h++;
-            fprintf(stderr, "[H] %s: %s\n", k, v);
-            t = v + 1 + strlen(v);
-            if (t[1] == '\r' && t[2] == '\n') break;
-        }
-        t++; // now the *t shall be the beginning of user payload
-        t2 = request_header("Content-Length"); // and the related header if there is  
-        payload = t;
-        payload_size = t2 ? atol(t2) : (rcvd-(t-buf));
+        // header_t *h = reqhdr;
+        // char *t, *t2;
+        // while(h < reqhdr+16) {
+        //     char *k,*v,*t;
+        //     k = strtok(NULL, "\r\n: \t"); if (!k) break;
+        //     v = strtok(NULL, "\r\n");     while(*v && *v==' ') v++;
+        //     h->name  = k;
+        //     h->value = v;
+        //     h++;
+        //     fprintf(stderr, "[H] %s: %s\n", k, v);
+        //     t = v + 1 + strlen(v);
+        //     if (t[1] == '\r' && t[2] == '\n') break;
+        // }
+        // t++; // now the *t shall be the beginning of user payload
+        // t2 = request_header("Content-Length"); // and the related header if there is  
+        // payload = t;
+        // payload_size = t2 ? atol(t2) : (rcvd-(t-buf));
 
         // bind clientfd to stdout, making it easier to write
         clientfd = clients[n];
@@ -209,7 +228,7 @@ void respond(int n)
         close(clientfd);
 
         // call router
-        route(method, uri, payload_size);
+        route(method, uri);
 
         // tidy up
         fflush(stdout);
