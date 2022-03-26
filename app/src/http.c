@@ -23,26 +23,17 @@ static void startServer(const char *);
 static void respond(int);
 
 typedef struct header_t {
-    char * name;
-    char * value;
-} header_t;
-
-typedef struct header2_t {
     string_t name;
     string_t value;
-} header2_t;
-typedef array_t(header2_t) header_array_t;
-static header_array_t request_headers = array_new(header2_t);
+} header_t;
+typedef array_t(header_t) header_array_t;
 
-static header_t reqhdr[17] = { {"\0", "\0"} };
 static int clientfd;
 
-char *request_header(const char* name);
-
-void route(string_t method, string_t uri){
+void route(string_t method, string_t uri, header_array_t * headers){
     if (string_equals(uri, string_literal("/index")) && string_equals(method, string_literal("GET"))){
         printf("HTTP/1.1 200 OK\r\n\r\n");
-        printf("Hello! You are using %s", request_header("User-Agent"));
+        // printf("Hello! You are using %s", request_header("User-Agent"));
         return;
     }
     
@@ -133,21 +124,7 @@ void startServer(const char *port)
     }
 }
 
-
-// get request header
-char *request_header(const char* name)
-{
-    header_t *h = reqhdr;
-    while(h->name) {
-        if (strcmp(h->name, name) == 0) return h->value;
-        h++;
-    }
-    return NULL;
-}
-
-//client connection
-void respond(int n)
-{
+void respond(int n){
     int fd, bytes_read;
     char *ptr;
 
@@ -187,6 +164,8 @@ void respond(int n)
         string_t query_parameters;
         string_split(uri, '?', &uri, &query_parameters);
         fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", method.size, method.chars, uri.size, uri.chars);
+
+        fprintf(stderr, "Headers = %.*s", header_string.size, header_string.chars);
         
         // header_t *h = reqhdr;
         // char *t, *t2;
@@ -212,7 +191,7 @@ void respond(int n)
         close(clientfd);
 
         // call router
-        route(method, uri);
+        route(method, uri, NULL);
 
         // tidy up
         fflush(stdout);

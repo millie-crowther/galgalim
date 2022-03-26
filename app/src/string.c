@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-bool char_is_whitespace(char c){
+bool character_is_whitespace(char c){
     return strchr(" \t\r\n", c) != NULL;
 }
 
@@ -43,18 +43,14 @@ bool string_equals(const string_t a, const string_t b){
 string_t string_strip(const string_t string){
     string_t stripped = string;
     
-    while (!string_is_empty(stripped) && char_is_whitespace(stripped.chars[0])){
+    while (!string_is_empty(stripped) && character_is_whitespace(stripped.chars[0])){
         stripped.chars++;
         stripped.size--;
     }
 
-    while (!string_is_empty(stripped) && char_is_whitespace(stripped.chars[stripped.size - 1])){
+    while (!string_is_empty(stripped) && character_is_whitespace(stripped.chars[stripped.size - 1])){
         stripped.size--;
     }
 
     return stripped;
-}
-
-bool string_contains_character(const string_t string, const char character){
-    return memchr(string.chars, character, string.size) != NULL;
 }
