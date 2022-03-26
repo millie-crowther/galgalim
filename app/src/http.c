@@ -148,13 +148,13 @@ char *request_header(const char* name)
 //client connection
 void respond(int n)
 {
-    int rcvd, fd, bytes_read;
+    int fd, bytes_read;
     char *ptr;
 
     int buffer_size = 65535;
     string_t buffer;
     char * x = malloc(buffer_size);
-    rcvd=recv(clients[n], x, buffer_size, 0);
+    int rcvd=recv(clients[n], x, buffer_size, 0);
     buffer.chars = x;
 
     if (rcvd<0)    // receive error
@@ -164,9 +164,6 @@ void respond(int n)
     else    // message received
     {
         buffer.size = rcvd;
-        char   
-            *qs;        // "a=1&b=2"     things after  '?'
-
         char *payload;     // for POST
         int payload_size;
 
@@ -187,23 +184,10 @@ void respond(int n)
         string_t protocol;
         string_split(request_line_string, ' ', &protocol, &request_line_string);
 
-
-        // string_split(buffer, string_literal("\n"), &method, &substring);
-        // string_split(substring, string_literal(" \t"), &uri, &substring);
-        // string_split(substring, string_literal(" \t\r\n"), &protocol, &substring);
-        // method = strtok(buf,  " \t\r\n");
-        // uri    = strtok(NULL, " \t");
-        // prot   = strtok(NULL, " \t\r\n"); 
-
-        // fprintf(stderr, "\x1b[32m + [%s] %s\x1b[0m\n", method, uri);
+        string_t query_parameters;
+        string_split(uri, '?', &uri, &query_parameters);
+        fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", method.size, method.chars, uri.size, uri.chars);
         
-        // if (qs = strchr(uri, '?'))
-        // {
-        //     *qs++ = '\0'; //split URI
-        // } else {
-        //     qs = uri - 1; //use an empty string
-        // }
-
         // header_t *h = reqhdr;
         // char *t, *t2;
         // while(h < reqhdr+16) {
