@@ -11,8 +11,6 @@ typedef struct string_t {
 
 #define empty_string (string_t){.chars = "", .size = 0}
 
-bool character_is_whitespace(char c);
-
 bool string_is_empty(const string_t string);
 bool string_equals(const string_t a, const string_t b);
 string_t string_literal(const char * string);

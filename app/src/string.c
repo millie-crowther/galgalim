@@ -1,11 +1,8 @@
 #include "string.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
-
-bool character_is_whitespace(char c){
-    return strchr(" \t\r\n", c) != NULL;
-}
 
 string_t string_literal(const char * string){
     return (string_t) {
@@ -43,12 +40,12 @@ bool string_equals(const string_t a, const string_t b){
 string_t string_strip(const string_t string){
     string_t stripped = string;
     
-    while (!string_is_empty(stripped) && character_is_whitespace(stripped.chars[0])){
+    while (!string_is_empty(stripped) && isspace(stripped.chars[0])){
         stripped.chars++;
         stripped.size--;
     }
 
-    while (!string_is_empty(stripped) && character_is_whitespace(stripped.chars[stripped.size - 1])){
+    while (!string_is_empty(stripped) && isspace(stripped.chars[stripped.size - 1])){
         stripped.size--;
     }
 
