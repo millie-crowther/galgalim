@@ -165,8 +165,15 @@ void respond(int n){
         string_split(uri, '?', &uri, &query_parameters);
         fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", method.size, method.chars, uri.size, uri.chars);
 
-        fprintf(stderr, "Headers = %.*s", header_string.size, header_string.chars);
-        
+        string_t header, header_name, header_value;
+        // TODO: check for empty line for payload
+        while (!string_is_empty(header_string)){
+            string_split(header_string, '\n', &header, &header_string);
+            string_split(header, ':', &header_name, &header_value);
+            header_value = string_strip(header_value);
+            fprintf(stderr, "Header name = %.*s\n", header_name.size, header_name.chars);
+            fprintf(stderr, "Header value = %.*s\n", header_value.size, header_value.chars);
+        }
         // header_t *h = reqhdr;
         // char *t, *t2;
         // while(h < reqhdr+16) {
