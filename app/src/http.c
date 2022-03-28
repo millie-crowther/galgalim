@@ -20,19 +20,29 @@
 #define MAXIMUM_CONNECTIONS 1000
 #define BUFFER_SIZE 65536
 
-static void error(char *);
-static void respond(int);
+const char * http_status_codes[HTTP_STATUS_END] = {
+    [HTTP_STATUS_OK] = "200 OK",
+    [HTTP_STATUS_BAD_REQUEST] = "400 Bad Request",
+    [HTTP_STATUS_NOT_FOUND] = "404 Not Found",
+    [HTTP_STATUS_INTERNAL_SERVER_ERROR] = "500 Internal Server Error"
+};
 
 void route(http_request_t * request){
     if (string_equals(request->uri, string_literal("/index")) && string_equals(request->method, string_literal("GET"))){
         string_t user_agent = http_get_header_value(&request->headers, string_literal("User-Agent"));
-        printf("HTTP/1.1 200 OK\r\n\r\n");
+        http_status_code(HTTP_STATUS_OK);
         printf("hello world\n");
         printf("Hello! You are using %.*s", user_agent.size, user_agent.chars);
-        return;
+        return; 
     }
     
-    printf("HTTP/1.1 500 Not Handled\r\n\r\n The server has no handler to the request.\r\n");
+    http_status_code(HTTP_STATUS_NOT_FOUND);
+    printf("The requested page was not found.\r\n");
+}
+
+void http_close_socket(const int file_descriptor){
+    shutdown(file_descriptor, SHUT_RDWR); 
+    close(file_descriptor);
 }
 
 void http_serve_forever(const char * port){
@@ -54,17 +64,21 @@ void http_serve_forever(const char * port){
         } else {
             int process_id = fork();
             if (process_id < 0){
-                fprintf(stderr, "fork() error");
+                fprintf(stderr, "Error forking new process to handle request.\n");
+                http_status_code(HTTP_STATUS_INTERNAL_SERVER_ERROR);
+                http_close_socket(clientfd);
 
             } else if (process_id == 0){
                 buffer = malloc(BUFFER_SIZE);
                 received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
 
-                if (received_bytes < 0) {
-                    fprintf(stderr, "recv() error\n");
+                if (received_bytes < 0){
+                    fprintf(stderr, "Error receiving data from socket.\n");
+                    http_status_code(HTTP_STATUS_INTERNAL_SERVER_ERROR);
 
                 } else if (received_bytes == 0){    
                     fprintf(stderr, "Client disconnected unexpectedly.\n");
+                    http_status_code(HTTP_STATUS_BAD_REQUEST);
 
                 } else {
                     http_request_t request;
@@ -83,8 +97,7 @@ void http_serve_forever(const char * port){
                     close(STDOUT_FILENO);
                 }
 
-                shutdown(clientfd, SHUT_RDWR); 
-                close(clientfd);
+                http_close_socket(clientfd);
                 exit(0);
             }
         }
@@ -191,4 +204,8 @@ string_t http_get_header_value(http_header_array_t * headers, string_t name){
     }
 
     return empty_string;
+}
+
+void http_status_code(const http_status_t status){
+    printf("HTTP/1.1 %s\r\n\r\n", http_status_codes[status]);
 }
