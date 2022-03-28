@@ -20,9 +20,7 @@
 #define MAXIMUM_CONNECTIONS 1000
 #define BUFFER_SIZE 65536
 
-static int listenfd;
 static void error(char *);
-static void start_server(const char *);
 static void respond(int);
 
 void route(http_request_t * request){
@@ -44,7 +42,7 @@ void http_serve_forever(const char * port){
     char * buffer;
     int received_bytes;
 
-    start_server(port);
+    int listenfd = http_start_listening(port);
 
     while (1){
         address_length = sizeof(client_address);
@@ -93,7 +91,7 @@ void http_serve_forever(const char * port){
     }
 }
 
-void start_server(const char *port){
+int http_start_listening(const char *port){
     struct addrinfo hints, *res, *p;
 
     // getaddrinfo for host
@@ -108,6 +106,7 @@ void start_server(const char *port){
     }
 
     // socket and bind
+    int listenfd;
     for (p = res; p != NULL; p = p->ai_next){
         int option = 1;
         listenfd = socket (p->ai_family, p->ai_socktype, 0);
@@ -138,7 +137,9 @@ void start_server(const char *port){
     // Ignore SIGCHLD to avoid zombie threads
     signal(SIGCHLD, SIG_IGN);
 
-    printf("Server started %shttp://127.0.0.1:%s%s\n", "\033[92m", port, "\033[0m");
+    fprintf(stderr, "Server started %shttp://127.0.0.1:%s%s\n", "\033[92m", port, "\033[0m");
+
+    return listenfd;
 }
 
 void http_build_request(http_request_t * request, const string_t buffer){

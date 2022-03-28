@@ -20,6 +20,7 @@ typedef struct http_request_t {
 
 string_t http_get_header_value(http_header_array_t * headers, string_t name);
 void http_build_request(http_request_t * request, const string_t buffer);
+int http_start_listening(const char *port);
 void http_serve_forever(const char *PORT);
 
 #endif
