@@ -5,13 +5,7 @@
 #include <string.h>
 
 char * file_read(const char * filename){
-    const char * path = "/static/";
-    char static_filename[strlen(path) + strlen(filename) + 1];
-    static_filename[0] = '\0';
-    strcat(static_filename, path);
-    strcat(static_filename, filename);
-
-    FILE * file = fopen(static_filename, "r");
+    FILE * file = fopen(filename, "r");
     if (file == NULL) {
         return NULL;
     }

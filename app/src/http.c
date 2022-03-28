@@ -110,13 +110,13 @@ void http_serve_forever(const char * port){
 int http_start_listening(const char *port){
     struct addrinfo hints, *addresses, *address_pointer;
 
-    homepage_html = file_read("homepage.html");
+    homepage_html = file_read("/static/homepage.html");
     if (homepage_html == NULL){
         fprintf(stderr, "Error loading HTML for homepage.\n");
         return -1;
     }
 
-    frontend_js = file_read("frontend.js");
+    frontend_js = file_read("/static/frontend.js");
     if (frontend_js == NULL){
         fprintf(stderr, "Error loading JavaScript for frontend.\n");
         return -1;
