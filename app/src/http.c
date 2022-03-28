@@ -109,6 +109,7 @@ int http_start_listening(const char *port){
     homepage = file_read("homepage.html");
     if (homepage == NULL){
         fprintf(stderr, "Error loading HTML for homepage.\n");
+        return -1;
     }
 
     // getaddrinfo for host
