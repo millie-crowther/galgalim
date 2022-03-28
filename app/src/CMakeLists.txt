@@ -11,4 +11,4 @@ set(SOURCES
 )
 
 add_executable(galgalim ${SOURCES})
-set_property(TARGET galgalim PROPERTY C_STANDARD 11)
+set_property(TARGET galgalim PROPERTY C_STANDARD 23)

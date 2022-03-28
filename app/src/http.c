@@ -193,11 +193,11 @@ void http_build_request(http_request_t * request, const string_t buffer){
         string_split(payload, '\n', &header, &payload);
         string_split(header, ':', &header_name, &header_value);
         header_value = string_strip(header_value);
-        array_push_back(&request->headers);
-        request->headers.data[request->headers.size - 1] = (http_header_t){
+        http_header_t http_header = (http_header_t){
             .name = header_name,
             .value = header_value
         };
+        array_push_back(&request->headers, http_header);
     }
     payload.chars += 2;
     payload.size = payload.size < 2 ? 0 : payload.size - 2;
