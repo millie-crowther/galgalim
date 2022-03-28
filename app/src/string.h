@@ -16,5 +16,6 @@ bool string_equals(const string_t a, const string_t b);
 string_t string_literal(const char * string);
 void string_split(const string_t string, char delimiter, string_t * head, string_t * tail);
 string_t string_strip(const string_t string);
+bool string_starts_with(const string_t string, const string_t prefix);
 
 #endif

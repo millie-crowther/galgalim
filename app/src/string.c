@@ -51,3 +51,8 @@ string_t string_strip(const string_t string){
 
     return stripped;
 }
+
+
+bool string_starts_with(const string_t string, const string_t prefix){
+    return prefix.size <= string.size && strncmp(string.chars, prefix.chars, prefix.size) == 0;
+}

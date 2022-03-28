@@ -1,5 +1,6 @@
 #include "http.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -15,101 +16,113 @@
 #include "array.h"
 #include "string.h"
 
-#define CONNMAX 1000
+// TODO: check maximum connections
+#define MAXIMUM_CONNECTIONS 1000
+#define BUFFER_SIZE 65536
 
-static int listenfd, clients[CONNMAX];
+static int listenfd;
 static void error(char *);
-static void startServer(const char *);
+static void start_server(const char *);
 static void respond(int);
 
-typedef struct header_t {
-    string_t name;
-    string_t value;
-} header_t;
-typedef array_t(header_t) header_array_t;
-
-static int clientfd;
-
-void route(string_t method, string_t uri, header_array_t * headers){
-    if (string_equals(uri, string_literal("/index")) && string_equals(method, string_literal("GET"))){
+void route(http_request_t * request){
+    if (string_equals(request->uri, string_literal("/index")) && string_equals(request->method, string_literal("GET"))){
+        string_t user_agent = http_get_header_value(&request->headers, string_literal("User-Agent"));
         printf("HTTP/1.1 200 OK\r\n\r\n");
-        // printf("Hello! You are using %s", request_header("User-Agent"));
+        printf("hello world\n");
+        printf("Hello! You are using %.*s", user_agent.size, user_agent.chars);
         return;
     }
     
     printf("HTTP/1.1 500 Not Handled\r\n\r\n The server has no handler to the request.\r\n");
 }
 
-void serve_forever(const char *PORT){
-    struct sockaddr_in clientaddr;
-    socklen_t addrlen;
-    char c;    
-    
-    int slot=0;
-    
-    printf(
-            "Server started %shttp://127.0.0.1:%s%s\n",
-            "\033[92m",PORT,"\033[0m"
-            );
+void http_serve_forever(const char * port){
+    struct sockaddr_in client_address;
+    socklen_t address_length;
+    int clientfd;
+    char * buffer;
+    int received_bytes;
 
-    // Setting all elements to -1: signifies there is no client connected
-    int i;
-    for (i=0; i<CONNMAX; i++)
-        clients[i]=-1;
-    startServer(PORT);
-    
-    // Ignore SIGCHLD to avoid zombie threads
-    signal(SIGCHLD,SIG_IGN);
+    start_server(port);
 
-    // ACCEPT connections
-    while (1)
-    {
-        addrlen = sizeof(clientaddr);
-        clients[slot] = accept (listenfd, (struct sockaddr *) &clientaddr, &addrlen);
+    while (1){
+        address_length = sizeof(client_address);
+        clientfd = accept(listenfd, (struct sockaddr *) &client_address, &address_length);
 
-        if (clients[slot]<0)
-        {
-            perror("accept() error");
-        }
-        else
-        {
-            if ( fork()==0 )
-            {
-                respond(slot);
+        if (clientfd < 0){
+            fprintf(stderr, "accept() error");
+
+        } else {
+            int process_id = fork();
+            if (process_id < 0){
+                fprintf(stderr, "fork() error");
+
+            } else if (process_id == 0){
+                buffer = malloc(BUFFER_SIZE);
+                received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
+
+                if (received_bytes < 0) {
+                    fprintf(stderr, "recv() error\n");
+
+                } else if (received_bytes == 0){    
+                    fprintf(stderr, "Client disconnected unexpectedly.\n");
+
+                } else {
+                    http_request_t request;
+                    http_build_request(&request, (string_t) { .chars = buffer, .size = received_bytes });
+
+                    // bind clientfd to stdout, making it easier to write
+                    dup2(clientfd, STDOUT_FILENO);
+                    close(clientfd);
+
+                    // call router
+                    route(&request);
+
+                    // tidy up
+                    fflush(stdout);
+                    shutdown(STDOUT_FILENO, SHUT_WR);
+                    close(STDOUT_FILENO);
+                }
+
+                shutdown(clientfd, SHUT_RDWR); 
+                close(clientfd);
                 exit(0);
             }
         }
-
-        while (clients[slot]!=-1) slot = (slot+1)%CONNMAX;
     }
 }
 
-//start server
-void startServer(const char *port)
-{
+void start_server(const char *port){
     struct addrinfo hints, *res, *p;
 
     // getaddrinfo for host
-    memset (&hints, 0, sizeof(hints));
+    memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
-    if (getaddrinfo( NULL, port, &hints, &res) != 0)
-    {
+
+    if (getaddrinfo( NULL, port, &hints, &res) != 0){
         perror ("getaddrinfo() error");
         exit(1);
     }
+
     // socket and bind
-    for (p = res; p!=NULL; p=p->ai_next)
-    {
+    for (p = res; p != NULL; p = p->ai_next){
         int option = 1;
         listenfd = socket (p->ai_family, p->ai_socktype, 0);
         setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
-        if (listenfd == -1) continue;
-        if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0) break;
+
+        if (listenfd == -1){ 
+            continue;
+        }
+
+        if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0){ 
+            break;
+        }
     }
-    if (p==NULL)
-    {
+
+    if (p == NULL){
         perror ("socket() or bind()");
         exit(1);
     }
@@ -117,97 +130,64 @@ void startServer(const char *port)
     freeaddrinfo(res);
 
     // listen for incoming connections
-    if ( listen (listenfd, 1000000) != 0 )
-    {
+    if (listen(listenfd, 1000000) != 0){
         perror("listen() error");
         exit(1);
     }
+    
+    // Ignore SIGCHLD to avoid zombie threads
+    signal(SIGCHLD, SIG_IGN);
+
+    printf("Server started %shttp://127.0.0.1:%s%s\n", "\033[92m", port, "\033[0m");
 }
 
-void respond(int n){
-    int fd, bytes_read;
-    char *ptr;
+void http_build_request(http_request_t * request, const string_t buffer){
+    string_t payload;
 
-    int buffer_size = 65535;
-    string_t buffer;
-    char * x = malloc(buffer_size);
-    int rcvd=recv(clients[n], x, buffer_size, 0);
-    buffer.chars = x;
+    // see RFC 2616, Section 5.1
+    // https://www.rfc-editor.org/rfc/rfc2616#section-5.1
+    string_t request_line_string;
+    // TODO: check "\r\n" at end of line rather than just '\n'
+    string_split(buffer, '\n', &request_line_string, &payload);
+    request_line_string = string_strip(request_line_string);
+    string_split(request_line_string, ' ', &request->method, &request_line_string);
+    string_split(request_line_string, ' ', &request->uri, &request_line_string);
+    string_split(request_line_string, ' ', &request->protocol, &request_line_string);
+    string_split(request->uri, '?', &request->uri, &request->query_parameters);
 
-    if (rcvd<0)    // receive error
-        fprintf(stderr,("recv() error\n"));
-    else if (rcvd==0)    // receive socket closed
-        fprintf(stderr,"Client disconnected upexpectedly.\n");
-    else    // message received
-    {
-        buffer.size = rcvd;
-        char *payload;     // for POST
-        int payload_size;
+    fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", request->method.size, request->method.chars, request->uri.size, request->uri.chars);
 
-        string_t header_string;
+    string_t header, header_name, header_value;
+    request->headers = array_new(http_header_array_t);
+    while (payload.size >= 2 && !string_starts_with(payload, string_literal("\r\n"))){
+        // TODO: check "\r\n" at end of line rather than just '\n'
+        string_split(payload, '\n', &header, &payload);
+        string_split(header, ':', &header_name, &header_value);
+        header_value = string_strip(header_value);
+        array_push_back(&request->headers);
+        request->headers.data[request->headers.size - 1] = (http_header_t){
+            .name = header_name,
+            .value = header_value
+        };
+    }
+    payload.chars += 2;
+    payload.size = payload.size < 2 ? 0 : payload.size - 2;
 
-        // see RFC 2616, Section 5.1
-        // https://www.rfc-editor.org/rfc/rfc2616#section-5.1
-        string_t request_line_string;
-        string_split(buffer, '\n', &request_line_string, &header_string);
-        request_line_string = string_strip(request_line_string);
-
-        string_t method;
-        string_split(request_line_string, ' ', &method, &request_line_string);
-
-        string_t uri;
-        string_split(request_line_string, ' ', &uri, &request_line_string);
-
-        string_t protocol;
-        string_split(request_line_string, ' ', &protocol, &request_line_string);
-
-        string_t query_parameters;
-        string_split(uri, '?', &uri, &query_parameters);
-        fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", method.size, method.chars, uri.size, uri.chars);
-
-        string_t header, header_name, header_value;
-        // TODO: check for empty line for payload
-        while (!string_is_empty(header_string)){
-            string_split(header_string, '\n', &header, &header_string);
-            string_split(header, ':', &header_name, &header_value);
-            header_value = string_strip(header_value);
-            fprintf(stderr, "Header name = %.*s\n", header_name.size, header_name.chars);
-            fprintf(stderr, "Header value = %.*s\n", header_value.size, header_value.chars);
+    string_t content_length_string = http_get_header_value(&request->headers, string_literal("Content-Length"));
+    if (!string_equals(content_length_string, empty_string)){
+        long content_length = atol(content_length_string.chars);
+        if (content_length != 0 && content_length < payload.size){
+            payload.size = content_length;
         }
-        // header_t *h = reqhdr;
-        // char *t, *t2;
-        // while(h < reqhdr+16) {
-        //     char *k,*v,*t;
-        //     k = strtok(NULL, "\r\n: \t"); if (!k) break;
-        //     v = strtok(NULL, "\r\n");     while(*v && *v==' ') v++;
-        //     h->name  = k;
-        //     h->value = v;
-        //     h++;
-        //     fprintf(stderr, "[H] %s: %s\n", k, v);
-        //     t = v + 1 + strlen(v);
-        //     if (t[1] == '\r' && t[2] == '\n') break;
-        // }
-        // t++; // now the *t shall be the beginning of user payload
-        // t2 = request_header("Content-Length"); // and the related header if there is  
-        // payload = t;
-        // payload_size = t2 ? atol(t2) : (rcvd-(t-buf));
+    }
+}
 
-        // bind clientfd to stdout, making it easier to write
-        clientfd = clients[n];
-        dup2(clientfd, STDOUT_FILENO);
-        close(clientfd);
-
-        // call router
-        route(method, uri, NULL);
-
-        // tidy up
-        fflush(stdout);
-        shutdown(STDOUT_FILENO, SHUT_WR);
-        close(STDOUT_FILENO);
+string_t http_get_header_value(http_header_array_t * headers, string_t name){
+    for (int i = 0; i < headers->size; i++){
+        if (string_equals(headers->data[i].name, name)){
+            return headers->data[i].value;
+        }
     }
 
-    //Closing SOCKET
-    shutdown(clientfd, SHUT_RDWR);         //All further send and recieve operations are DISABLED...
-    close(clientfd);
-    clients[n]=-1;
+    return empty_string;
 }

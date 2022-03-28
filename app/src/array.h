@@ -16,7 +16,7 @@ typedef array_t(uint8_t) array_base_t;
 
 #define ARRAY_CAST(x) ((array_base_t *)x)
 
-#define array_new(x) {.size = 0, .capacity = 0, .element_size = sizeof(x), .data = NULL}
+#define array_new(T) (T) {.size = 0, .capacity = 0, .element_size = sizeof(((T *) 0)->data[0]), .data = NULL}
 
 #define array_clear(x) array_base_clear(ARRAY_CAST(x))
 void array_base_clear(array_base_t *a);
