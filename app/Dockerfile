@@ -3,9 +3,8 @@ FROM alpine:latest
 # install dependencies
 RUN apk add --no-cache make cmake gcc musl-dev
 
-# copy in files
+# copy in source code
 COPY src /src
-COPY static /static
 
 # build app
 WORKDIR "/src"
@@ -16,6 +15,9 @@ RUN make
 RUN cp galgalim /galgalim
 WORKDIR "/"
 RUN rm -rf /src
+
+# copy in static files 
+COPY static /static
 
 # run app
 CMD /galgalim

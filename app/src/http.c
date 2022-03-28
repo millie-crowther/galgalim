@@ -74,7 +74,6 @@ void http_serve_forever(const char * port){
             pid_t process_id = fork();
             if (process_id < 0){
                 fprintf(stderr, "Error forking new process to handle request.\n");
-                http_status_code(HTTP_STATUS_INTERNAL_SERVER_ERROR);
                 http_close_socket(clientfd);
 
             } else if (process_id == 0){
@@ -83,7 +82,6 @@ void http_serve_forever(const char * port){
 
                 if (received_bytes < 0){
                     fprintf(stderr, "Error receiving data from socket.\n");
-                    http_status_code(HTTP_STATUS_INTERNAL_SERVER_ERROR);
 
                 } else if (received_bytes == 0){    
                     fprintf(stderr, "Client disconnected unexpectedly.\n");
