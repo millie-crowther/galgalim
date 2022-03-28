@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 #include "array.h"
 #include "string.h"
@@ -52,23 +53,45 @@ void http_serve_forever(const char * port){
     char * buffer;
     int received_bytes;
 
-    int listenfd = http_start_listening(port);
+    int listenfd = http_start_listening(port);  
+    if (listenfd == -1){
+        exit(1);
+    }
+
+    int slot = 0;
+    pid_t * process_ids = malloc(sizeof(int) * MAXIMUM_CONNECTIONS);
+    for (int i = 0; i < MAXIMUM_CONNECTIONS; i++){
+        process_ids[i] = -1;
+    }
 
     while (1){
+        slot = (slot + 1) % MAXIMUM_CONNECTIONS;
+
+        // TODO: limit max connections by waiting on old child processes
+        // if (process_ids[slot] >= 0){
+        //     int status;
+        //     int options;
+        //     waitpid(process_ids[slot], &status, options);
+        //     process_ids[slot] = -1;
+        // }
+
         address_length = sizeof(client_address);
         clientfd = accept(listenfd, (struct sockaddr *) &client_address, &address_length);
 
         if (clientfd < 0){
-            fprintf(stderr, "accept() error");
+            fprintf(stderr, "Error accepting socket connection.\n");
 
         } else {
-            int process_id = fork();
+            pid_t process_id = fork();
             if (process_id < 0){
                 fprintf(stderr, "Error forking new process to handle request.\n");
                 http_status_code(HTTP_STATUS_INTERNAL_SERVER_ERROR);
                 http_close_socket(clientfd);
 
-            } else if (process_id == 0){
+            } else if (process_id > 0){
+                process_ids[slot] = process_id;
+
+            } else {
                 buffer = malloc(BUFFER_SIZE);
                 received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
 
@@ -84,14 +107,11 @@ void http_serve_forever(const char * port){
                     http_request_t request;
                     http_build_request(&request, (string_t) { .chars = buffer, .size = received_bytes });
 
-                    // bind clientfd to stdout, making it easier to write
                     dup2(clientfd, STDOUT_FILENO);
                     close(clientfd);
 
-                    // call router
                     route(&request);
 
-                    // tidy up
                     fflush(stdout);
                     shutdown(STDOUT_FILENO, SHUT_WR);
                     close(STDOUT_FILENO);
@@ -105,7 +125,7 @@ void http_serve_forever(const char * port){
 }
 
 int http_start_listening(const char *port){
-    struct addrinfo hints, *res, *p;
+    struct addrinfo hints, *addresses, *address_pointer;
 
     // getaddrinfo for host
     memset(&hints, 0, sizeof(hints));
@@ -113,38 +133,38 @@ int http_start_listening(const char *port){
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
-    if (getaddrinfo( NULL, port, &hints, &res) != 0){
-        perror ("getaddrinfo() error");
-        exit(1);
+    if (getaddrinfo( NULL, port, &hints, &addresses) != 0){
+        fprintf(stderr, "getaddrinfo() error");
+        return -1;
     }
 
     // socket and bind
     int listenfd;
-    for (p = res; p != NULL; p = p->ai_next){
+    for (address_pointer = addresses; address_pointer != NULL; address_pointer = address_pointer->ai_next){
         int option = 1;
-        listenfd = socket (p->ai_family, p->ai_socktype, 0);
+        listenfd = socket (address_pointer->ai_family, address_pointer->ai_socktype, 0);
         setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
 
         if (listenfd == -1){ 
             continue;
         }
 
-        if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0){ 
+        if (bind(listenfd, address_pointer->ai_addr, address_pointer->ai_addrlen) == 0){ 
             break;
         }
     }
 
-    if (p == NULL){
-        perror ("socket() or bind()");
-        exit(1);
+    if (address_pointer == NULL){
+        fprintf(stderr, "socket() or bind()");
+        return -1;
     }
 
-    freeaddrinfo(res);
+    freeaddrinfo(addresses);
 
     // listen for incoming connections
     if (listen(listenfd, 1000000) != 0){
-        perror("listen() error");
-        exit(1);
+        fprintf(stderr, "listen() error");
+        return -1;
     }
     
     // Ignore SIGCHLD to avoid zombie threads
