@@ -26,12 +26,19 @@ const char * http_status_codes[HTTP_STATUS_END] = {
     [HTTP_STATUS_NOT_FOUND] = "404 Not Found",
     [HTTP_STATUS_INTERNAL_SERVER_ERROR] = "500 Internal Server Error"
 };
-char * homepage;
+char * homepage_html;
+char * frontend_js;
 
 void route(http_request_t * request){
     if (string_equals(request->uri, string_literal("/")) && string_equals(request->method, string_literal("GET"))){
         http_status_code(HTTP_STATUS_OK);
-        printf("%s", homepage);
+        printf("%s", homepage_html);
+        return; 
+    }
+
+    if (string_equals(request->uri, string_literal("/frontend.js")) && string_equals(request->method, string_literal("GET"))){
+        http_status_code(HTTP_STATUS_OK);
+        printf("%s", frontend_js);
         return; 
     }
     
@@ -80,7 +87,6 @@ void http_serve_forever(const char * port){
 
                 } else if (received_bytes == 0){    
                     fprintf(stderr, "Client disconnected unexpectedly.\n");
-                    http_status_code(HTTP_STATUS_BAD_REQUEST);
 
                 } else {
                     http_request_t request;
@@ -106,9 +112,15 @@ void http_serve_forever(const char * port){
 int http_start_listening(const char *port){
     struct addrinfo hints, *addresses, *address_pointer;
 
-    homepage = file_read("homepage.html");
-    if (homepage == NULL){
+    homepage_html = file_read("homepage.html");
+    if (homepage_html == NULL){
         fprintf(stderr, "Error loading HTML for homepage.\n");
+        return -1;
+    }
+
+    frontend_js = file_read("frontend.js");
+    if (frontend_js == NULL){
+        fprintf(stderr, "Error loading JavaScript for frontend.\n");
         return -1;
     }
 
