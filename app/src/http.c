@@ -15,10 +15,9 @@
 #include <sys/wait.h>
 
 #include "array.h"
+#include "file.h"
 #include "string.h"
 
-// TODO: check maximum connections
-#define MAXIMUM_CONNECTIONS 1000
 #define BUFFER_SIZE 65536
 
 const char * http_status_codes[HTTP_STATUS_END] = {
@@ -27,13 +26,12 @@ const char * http_status_codes[HTTP_STATUS_END] = {
     [HTTP_STATUS_NOT_FOUND] = "404 Not Found",
     [HTTP_STATUS_INTERNAL_SERVER_ERROR] = "500 Internal Server Error"
 };
+char * homepage;
 
 void route(http_request_t * request){
-    if (string_equals(request->uri, string_literal("/index")) && string_equals(request->method, string_literal("GET"))){
-        string_t user_agent = http_get_header_value(&request->headers, string_literal("User-Agent"));
+    if (string_equals(request->uri, string_literal("/")) && string_equals(request->method, string_literal("GET"))){
         http_status_code(HTTP_STATUS_OK);
-        printf("hello world\n");
-        printf("Hello! You are using %.*s", user_agent.size, user_agent.chars);
+        printf("%s", homepage);
         return; 
     }
     
@@ -58,23 +56,7 @@ void http_serve_forever(const char * port){
         exit(1);
     }
 
-    int slot = 0;
-    pid_t * process_ids = malloc(sizeof(int) * MAXIMUM_CONNECTIONS);
-    for (int i = 0; i < MAXIMUM_CONNECTIONS; i++){
-        process_ids[i] = -1;
-    }
-
     while (1){
-        slot = (slot + 1) % MAXIMUM_CONNECTIONS;
-
-        // TODO: limit max connections by waiting on old child processes
-        // if (process_ids[slot] >= 0){
-        //     int status;
-        //     int options;
-        //     waitpid(process_ids[slot], &status, options);
-        //     process_ids[slot] = -1;
-        // }
-
         address_length = sizeof(client_address);
         clientfd = accept(listenfd, (struct sockaddr *) &client_address, &address_length);
 
@@ -88,10 +70,7 @@ void http_serve_forever(const char * port){
                 http_status_code(HTTP_STATUS_INTERNAL_SERVER_ERROR);
                 http_close_socket(clientfd);
 
-            } else if (process_id > 0){
-                process_ids[slot] = process_id;
-
-            } else {
+            } else if (process_id == 0){
                 buffer = malloc(BUFFER_SIZE);
                 received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
 
@@ -126,6 +105,11 @@ void http_serve_forever(const char * port){
 
 int http_start_listening(const char *port){
     struct addrinfo hints, *addresses, *address_pointer;
+
+    homepage = file_read("homepage.html");
+    if (homepage == NULL){
+        fprintf(stderr, "Error loading HTML for homepage.\n");
+    }
 
     // getaddrinfo for host
     memset(&hints, 0, sizeof(hints));

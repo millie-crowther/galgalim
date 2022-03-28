@@ -2,10 +2,12 @@ cmake_minimum_required(VERSION 3.21)
 project (galgalim C)
 
 set(SOURCES
-    http.c
     main.c
-    string.c
+
     array.c
+    file.c
+    http.c
+    string.c
 )
 
 add_executable(galgalim ${SOURCES})
