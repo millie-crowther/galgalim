@@ -67,3 +67,6 @@ Makefile
 galgalim
 
 .vscode
+
+# node
+node_modules
