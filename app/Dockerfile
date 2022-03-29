@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM alpine:3.15.3
 
 # install dependencies
 RUN apk add --no-cache make cmake gcc musl-dev

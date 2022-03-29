@@ -14,7 +14,7 @@ char * file_read(const char * filename){
     size_t size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    char * string = (char *) malloc(size + 1);
+    char * string = malloc(size + 1);
     fread(string, 1, size, file);
     string[size] = '\0';
 

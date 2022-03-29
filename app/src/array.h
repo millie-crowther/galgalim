@@ -31,7 +31,9 @@ bool array_base_is_empty(array_base_t * array);
 
 #define array_front(array) (array->data)
 
-#define array_back(array) ((typeof(array->data)) array_base_back(ARRAY_CAST(array)))
+#define array_back(array) (                                                     \
+    (typeof(array->data)) array_base_back(ARRAY_CAST(array))                    \
+)
 uint8_t * array_base_back(array_base_t * array);
 
 #define array_push_back(array, x) do {                                          \

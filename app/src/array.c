@@ -1,6 +1,5 @@
 #include "array.h"
 
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -51,5 +50,8 @@ void array_base_pop_back(array_base_t * array){
 }
 
 uint8_t * array_base_back(array_base_t * array){
+    if (array->size == 0){
+        return NULL;
+    }
     return array->data + (array->size - 1) * array->element_size;
 }

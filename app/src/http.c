@@ -32,17 +32,21 @@ char * frontend_js;
 void route(http_request_t * request){
     if (string_equals(request->uri, string_literal("/")) && string_equals(request->method, string_literal("GET"))){
         http_status_code(HTTP_STATUS_OK);
+        printf("\r\n");
         printf("%s", homepage_html);
         return; 
     }
 
     if (string_equals(request->uri, string_literal("/frontend.js")) && string_equals(request->method, string_literal("GET"))){
         http_status_code(HTTP_STATUS_OK);
+        printf("Content-Type:text/javascript\r\n");
+        printf("\r\n");
         printf("%s", frontend_js);
         return; 
     }
     
     http_status_code(HTTP_STATUS_NOT_FOUND);
+    printf("\r\n");
     printf("The requested page was not found.\r\n");
 }
 
@@ -222,5 +226,5 @@ string_t http_get_header_value(http_header_array_t * headers, string_t name){
 }
 
 void http_status_code(const http_status_t status){
-    printf("HTTP/1.1 %s\r\n\r\n", http_status_codes[status]);
+    printf("HTTP/1.1 %s\r\n", http_status_codes[status]);
 }
