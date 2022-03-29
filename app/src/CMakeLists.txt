@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 project (galgalim C)
 
+add_compile_options(-Wall -Wextra -pedantic -Werror)
+
 set(SOURCES
     main.c
 

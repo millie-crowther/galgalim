@@ -216,7 +216,7 @@ void http_build_request(http_request_t * request, const string_t buffer){
 }
 
 string_t http_get_header_value(http_header_array_t * headers, string_t name){
-    for (int i = 0; i < headers->size; i++){
+    for (uint32_t i = 0; i < headers->size; i++){
         if (string_equals(headers->data[i].name, name)){
             return headers->data[i].value;
         }

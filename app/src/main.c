@@ -1,7 +1,6 @@
 #include "http.h"
 
-int main(int c, char** v)
-{
+int main(){
     http_serve_forever("8080");
     return 0;
 }
