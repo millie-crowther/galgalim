@@ -1,5 +1,13 @@
 var cubeRotation = 0.0;
 
+function onKeyPress(event){
+    console.log('key pressed! ', event.key)
+}
+
+function onKeyRelease(event){
+    console.log('key released! ', event.key)
+}
+
 function main() {
     const canvas = document.getElementById("glCanvas");
     const webGL = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
@@ -68,6 +76,9 @@ function main() {
         requestAnimationFrame(render);
     }
     requestAnimationFrame(render);
+
+    document.addEventListener('keydown', onKeyPress);
+    document.addEventListener('keyup', onKeyRelease);
 }
 
 window.onload = main;
@@ -353,3 +364,4 @@ function loadShader(gl, type, source) {
 
     return shader;
 }
+
