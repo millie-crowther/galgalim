@@ -30,14 +30,14 @@ char * homepage_html;
 char * frontend_js;
 
 void route(http_request_t * request){
-    if (string_equals(request->uri, string_literal("/")) && string_equals(request->method, string_literal("GET"))){
+    if (string_equals(request->uri, string_new("/")) && string_equals(request->method, string_new("GET"))){
         http_status_code(HTTP_STATUS_OK);
         printf("\r\n");
         printf("%s", homepage_html);
         return; 
     }
 
-    if (string_equals(request->uri, string_literal("/frontend.js")) && string_equals(request->method, string_literal("GET"))){
+    if (string_equals(request->uri, string_new("/frontend.js")) && string_equals(request->method, string_new("GET"))){
         http_status_code(HTTP_STATUS_OK);
         printf("Content-Type:text/javascript\r\n");
         printf("\r\n");
@@ -192,8 +192,7 @@ void http_build_request(http_request_t * request, const string_t buffer){
 
     string_t header, header_name, header_value;
     request->headers = array_new(http_header_array_t);
-    while (payload.size >= 2 && !string_starts_with(payload, string_literal("\r\n"))){
-        // TODO: check "\r\n" at end of line rather than just '\n'
+    while (payload.size >= 2 && !string_starts_with(payload, string_new("\r\n"))){
         string_split(payload, '\n', &header, &payload);
         string_split(header, ':', &header_name, &header_value);
         header_value = string_strip(header_value);
@@ -206,7 +205,7 @@ void http_build_request(http_request_t * request, const string_t buffer){
     payload.chars += 2;
     payload.size = payload.size < 2 ? 0 : payload.size - 2;
 
-    string_t content_length_string = http_get_header_value(&request->headers, string_literal("Content-Length"));
+    string_t content_length_string = http_get_header_value(&request->headers, string_new("Content-Length"));
     if (!string_equals(content_length_string, empty_string)){
         long content_length = atol(content_length_string.chars);
         if (content_length != 0 && content_length < payload.size){

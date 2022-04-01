@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-string_t string_literal(const char * string){
+string_t string_new(const char * string){
     return (string_t) {
         .chars = string,
         .size = strlen(string)
