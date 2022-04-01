@@ -9,6 +9,7 @@ set(SOURCES
     array.c
     file.c
     http.c
+    random.c
     string.c
 )
 
