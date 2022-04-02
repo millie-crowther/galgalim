@@ -1,17 +1,27 @@
 #include "random.h"
+#include <stdio.h>
 
-void random_seed(random_t * random, uint64_t seed, uint64_t sequence){
-    random->state = 0U;
-    random->inc = (sequence << 1u) | 1u;
-    random_u32(random);
-    random->state += seed;
-    random_u32(random);
+#include "file.h"
+
+random_t random_new(){
+    return (random_t){
+        .file = fopen("/dev/urandom", "r")
+    };
 }
 
-uint32_t random_u32(random_t * random){
-    uint64_t oldstate = random->state;
-    random->state = oldstate * 6364136223846793005ULL + random->inc;
-    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
-    uint32_t rot = oldstate >> 59u;
-    return (xorshifted >> rot) | (xorshifted << ((-rot) & 31));
+void random_destroy(random_t * random){
+    if (random->file != NULL){
+        fclose(random->file);
+        random->file = NULL;
+    }
+}
+
+void random_uuid(random_t * random, uuid_t * uuid){
+    fread((void *) uuid, 1, sizeof(uuid_t), random->file);
+}
+
+void uuid_to_string(uuid_t * uuid, char * string){
+    for (int i = 0; i < UUID_SIZE; i++){
+        sprintf(string + i * 2, "%02hhx", uuid->data[i]);
+    }
 }
