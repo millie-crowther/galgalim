@@ -20,34 +20,21 @@
 
 #define BUFFER_SIZE 65536
 
-const char * http_status_codes[HTTP_STATUS_END] = {
-    [HTTP_STATUS_OK] = "200 OK",
-    [HTTP_STATUS_BAD_REQUEST] = "400 Bad Request",
-    [HTTP_STATUS_NOT_FOUND] = "404 Not Found",
-    [HTTP_STATUS_INTERNAL_SERVER_ERROR] = "500 Internal Server Error"
-};
 char * homepage_html;
 char * frontend_js;
 
 void route(http_request_t * request){
-    if (string_equals(request->uri, string_new("/")) && string_equals(request->method, string_new("GET"))){
-        http_status_code(HTTP_STATUS_OK);
-        printf("\r\n");
-        printf("%s", homepage_html);
-        return; 
-    }
-
-    if (string_equals(request->uri, string_new("/frontend.js")) && string_equals(request->method, string_new("GET"))){
-        http_status_code(HTTP_STATUS_OK);
-        printf("Content-Type:text/javascript\r\n");
-        printf("\r\n");
-        printf("%s", frontend_js);
+    if (string_starts_with(request->request_line_string, string_new("GET / "))){
+        printf("HTTP/1.1 200 OK\r\n\r\n%s", homepage_html);
         return; 
     }
     
-    http_status_code(HTTP_STATUS_NOT_FOUND);
-    printf("\r\n");
-    printf("The requested page was not found.\r\n");
+    if (string_starts_with(request->request_line_string, string_new("GET /frontend.js "))){
+        printf("HTTP/1.1 200 OK\r\nContent-Type:text/javascript\r\n\r\n%s", frontend_js);
+        return; 
+    }
+    
+    printf("HTTP/1.1 404 Not Found\r\n\r\nThe requested page was not found.\r\n");
 }
 
 void http_close_socket(const int file_descriptor){
@@ -175,55 +162,35 @@ int http_start_listening(const char *port){
 }
 
 void http_build_request(http_request_t * request, const string_t buffer){
-    string_t payload;
-
     // see RFC 2616, Section 5.1
     // https://www.rfc-editor.org/rfc/rfc2616#section-5.1
-    string_t request_line_string;
-    // TODO: check "\r\n" at end of line rather than just '\n'
-    string_split(buffer, '\n', &request_line_string, &payload);
-    request_line_string = string_strip(request_line_string);
-    string_split(request_line_string, ' ', &request->method, &request_line_string);
-    string_split(request_line_string, ' ', &request->uri, &request_line_string);
-    string_split(request_line_string, ' ', &request->protocol, &request_line_string);
-    string_split(request->uri, '?', &request->uri, &request->query_parameters);
+    string_split(buffer, string_new("\r\n"), &request->request_line_string, &request->payload);
+    string_split(request->request_line_string, string_new(" "), &request->method, &request->uri);
+    string_split(request->uri, string_new(" "), &request->uri, &request->protocol);
+    string_split(request->uri, string_new("?"), &request->uri, &request->query_parameters);
+    string_split(request->payload, string_new("\r\n\r\n"), &request->headers, &request->payload);
+
+    // ensure headers are padded with "\r\n" at each end to make parsing them easier
+    request->headers.chars -= 2;
+    request->headers.size += 4;
 
     fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", request->method.size, request->method.chars, request->uri.size, request->uri.chars);
 
-    string_t header, header_name, header_value;
-    request->headers = array_new(http_header_array_t);
-    while (payload.size >= 2 && !string_starts_with(payload, string_new("\r\n"))){
-        string_split(payload, '\n', &header, &payload);
-        string_split(header, ':', &header_name, &header_value);
-        header_value = string_strip(header_value);
-        http_header_t http_header = (http_header_t){
-            .name = header_name,
-            .value = header_value
-        };
-        array_push_back(&request->headers, http_header);
-    }
-    payload.chars += 2;
-    payload.size = payload.size < 2 ? 0 : payload.size - 2;
-
-    string_t content_length_string = http_get_header_value(&request->headers, string_new("Content-Length"));
+    string_t content_length_string = http_header_value(&request->headers, string_new("Content-Length"));
     if (!string_equals(content_length_string, empty_string)){
         long content_length = atol(content_length_string.chars);
-        if (content_length != 0 && content_length < payload.size){
-            payload.size = content_length;
+        if (content_length != 0 && content_length < request->payload.size){
+            request->payload.size = content_length;
         }
     }
 }
 
-string_t http_get_header_value(http_header_array_t * headers, string_t name){
-    for (uint32_t i = 0; i < headers->size; i++){
-        if (string_equals(headers->data[i].name, name)){
-            return headers->data[i].value;
-        }
-    }
-
-    return empty_string;
-}
-
-void http_status_code(const http_status_t status){
-    printf("HTTP/1.1 %s\r\n", http_status_codes[status]);
+string_t http_header_value(const http_request_t * request, const string_t header_name){
+    char key[header_name.size + strlen("\r\n: ") + 1];
+    sprintf(key, "\r\n%.*s: ", header_name.size, header_name.chars);
+    string_t _;
+    string_t header_value;
+    string_split(request->headers, string_new(key), &_, &header_value);
+    string_split(header_value, string_new("\r\n"), &header_value, &_);
+    return header_value;
 }

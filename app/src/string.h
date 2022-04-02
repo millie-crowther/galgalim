@@ -14,8 +14,8 @@ typedef struct string_t {
 bool string_is_empty(const string_t string);
 bool string_equals(const string_t a, const string_t b);
 string_t string_new(const char * string);
-void string_split(const string_t string, char delimiter, string_t * head, string_t * tail);
-string_t string_strip(const string_t string);
+void string_split(const string_t string, const string_t delimiter, string_t * head, string_t * tail);
 bool string_starts_with(const string_t string, const string_t prefix);
+
 
 #endif

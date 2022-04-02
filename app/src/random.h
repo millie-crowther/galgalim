@@ -1,7 +1,6 @@
 #ifndef RANDOM_H
 #define RANDOM_H
 
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 
