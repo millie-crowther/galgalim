@@ -1,23 +1,19 @@
 #include "http.h"
-#include "random.h"
+#include "file.h"
 #include <stdio.h>
-#include <unistd.h>
+#include <string.h>
 
 int main(){
-    random_t random = random_new();
-    uuid_t uuid;
-    random_uuid(&random, &uuid);
-    random_destroy(&random);
-    
-    char string[UUID_STRING_LENGTH];
-    uuid_to_string(&uuid, string);
-    printf("uuid = %.*s\n", UUID_STRING_LENGTH, string); 
-    printf("asdf\n");   
-    printf("asdf\n");  
-    fflush(stdout); 
+    char json_string[] = "{ \"a\": 1, \"b\": 2, \"c\": {\"d\": 3 }, \"d\": 4 }";
+    printf("json = %s\n", json_string);
+    json_t json = json_load(json_string, strlen(json_string));
+    printf("whitespace stripped = %s\n", json.buffer);
+    json_t a = json_dictionary_find_key(json, string_new("a"));
+    json_t b = json_dictionary_find_key(json, string_new("b"));
+    json_t d = json_dictionary_find_key(json, string_new("d"));
+    printf("a = %s\nb = %s\nd = %s\n", a.buffer, b.buffer, d.buffer);
+    fflush(stdout);
 
-    sleep(1);
-    
     http_serve_forever("8080");
     return 0;
 }

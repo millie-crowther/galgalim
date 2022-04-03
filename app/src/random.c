@@ -4,8 +4,8 @@
 #include "file.h"
 
 random_t random_new(){
-    return (random_t){
-        .file = fopen("/dev/urandom", "r")
+    return (random_t){ 
+        .file = fopen("/dev/urandom", "r") 
     };
 }
 

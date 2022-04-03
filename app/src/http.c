@@ -46,8 +46,6 @@ void http_serve_forever(const char * port){
     struct sockaddr_in client_address;
     socklen_t address_length;
     int clientfd;
-    char * buffer;
-    int received_bytes;
 
     int listenfd = http_start_listening(port);  
     if (listenfd == -1){
@@ -68,8 +66,8 @@ void http_serve_forever(const char * port){
                 http_close_socket(clientfd);
 
             } else if (process_id == 0){
-                buffer = malloc(BUFFER_SIZE);
-                received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
+                char * buffer = malloc(BUFFER_SIZE);
+                int received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
 
                 if (received_bytes < 0){
                     fprintf(stderr, "Error receiving data from socket.\n");
@@ -169,14 +167,12 @@ void http_build_request(http_request_t * request, const string_t buffer){
     string_split(request->uri, string_new(" "), &request->uri, &request->protocol);
     string_split(request->uri, string_new("?"), &request->uri, &request->query_parameters);
     string_split(request->payload, string_new("\r\n\r\n"), &request->headers, &request->payload);
-
-    // ensure headers are padded with "\r\n" at each end to make parsing them easier
     request->headers.chars -= 2;
-    request->headers.size += 4;
+    request->headers.size += 2;
 
     fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", request->method.size, request->method.chars, request->uri.size, request->uri.chars);
 
-    string_t content_length_string = http_header_value(&request->headers, string_new("Content-Length"));
+    string_t content_length_string = http_header_value(request, string_new("Content-Length"));
     if (!string_equals(content_length_string, empty_string)){
         long content_length = atol(content_length_string.chars);
         if (content_length != 0 && content_length < request->payload.size){
