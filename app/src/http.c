@@ -66,7 +66,7 @@ void http_serve_forever(const char * port){
                 http_close_socket(clientfd);
 
             } else if (process_id == 0){
-                char * buffer = malloc(BUFFER_SIZE);
+                char * buffer = malloc(BUFFER_SIZE + 1);
                 int received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
 
                 if (received_bytes < 0){
@@ -76,6 +76,7 @@ void http_serve_forever(const char * port){
                     fprintf(stderr, "Client disconnected unexpectedly.\n");
 
                 } else {
+                    buffer[received_bytes] = '\0';
                     http_request_t request;
                     http_build_request(&request, (string_t) { .chars = buffer, .size = received_bytes });
 
