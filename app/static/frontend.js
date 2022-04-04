@@ -1,4 +1,6 @@
 var cubeRotation = 0.0;
+var instanceID = null;
+var playerID = null;
 
 function sendJSONRequest(method, path, payload) {
     var request = new XMLHttpRequest();
@@ -10,8 +12,8 @@ function sendJSONRequest(method, path, payload) {
 
 function sendKeyEvent(event_type, key) {
     sendJSONRequest("POST", "event", {
-        instance_id: "123",
-        player_id: "456",
+        instance_id: instanceID,
+        player_id: playerID,
         name: "keyboard",
         type: event_type,
         key: key,

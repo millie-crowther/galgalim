@@ -44,7 +44,6 @@ void route(http_request_t * request){
         error |= type.type == JSON_TYPE_ERROR;
         json_t key = json_dictionary_find_key(json, string_new("key"));
         error |= key.type == JSON_TYPE_ERROR;
-        fprintf(stderr, "json = %s\name = %s\n", json.buffer, event_name.buffer);
 
         if (error){
             printf("HTTP/1.1 422 Unprocessable Entity\r\n\r\n");

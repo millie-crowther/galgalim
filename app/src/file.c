@@ -5,6 +5,25 @@
 #include <stdio.h>
 #include <string.h>
 
+char * file_read(const char * filename){
+    FILE * file = fopen(filename, "r");
+    if (file == NULL) {
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    size_t size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char * string = malloc(size + 1);
+    fread(string, 1, size, file);
+    string[size] = '\0';
+
+    fclose(file);
+
+    return string;
+}
+
 static json_type_t json_infer_type(const char leading_char){
     switch (leading_char){
     case '{':
@@ -48,25 +67,6 @@ static char * json_skip_collection(char * start, const char * end, const char op
     }
     start++;
     return start;
-}
-
-char * file_read(const char * filename){
-    FILE * file = fopen(filename, "r");
-    if (file == NULL) {
-        return NULL;
-    }
-
-    fseek(file, 0, SEEK_END);
-    size_t size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char * string = malloc(size + 1);
-    fread(string, 1, size, file);
-    string[size] = '\0';
-
-    fclose(file);
-
-    return string;
 }
 
 json_t json_load(char * buffer, uint32_t length){
