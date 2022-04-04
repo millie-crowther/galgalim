@@ -38,9 +38,13 @@ void route(http_request_t * request){
         bool error = false;
         json_t json = json_load(request->payload, request->payload_length);
         error |= json.type == JSON_TYPE_ERROR;
-        json_t event_name = json_dictionary_find_key(json, string_new("event_name"));
+        json_t event_name = json_dictionary_find_key(json, string_new("name"));
         error |= event_name.type == JSON_TYPE_ERROR;
-        fprintf(stderr, "json = %s\nevent name = %s\n", json.buffer, event_name.buffer);
+        json_t type = json_dictionary_find_key(json, string_new("type"));
+        error |= type.type == JSON_TYPE_ERROR;
+        json_t key = json_dictionary_find_key(json, string_new("key"));
+        error |= key.type == JSON_TYPE_ERROR;
+        fprintf(stderr, "json = %s\name = %s\n", json.buffer, event_name.buffer);
 
         if (error){
             printf("HTTP/1.1 422 Unprocessable Entity\r\n\r\n");

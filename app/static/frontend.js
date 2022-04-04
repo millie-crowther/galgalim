@@ -1,11 +1,21 @@
 var cubeRotation = 0.0;
 
-function onKeyPress(event){
-    console.log('key pressed! ', event.key)
+function sendJSONRequest(method, path, payload) {
+    var request = new XMLHttpRequest();
+    var json_string = JSON.stringify(payload);
+    request.open(method, `${document.baseURI}${path}`);
+    request.send(json_string);
+    console.log(`Just sent ${json_string} to ${document.baseURI}${path} by method ${method}`);
 }
 
-function onKeyRelease(event){
-    console.log('key released! ', event.key)
+function sendKeyEvent(event_type, key) {
+    sendJSONRequest("POST", "event", {
+        instance_id: "123",
+        player_id: "456",
+        name: "keyboard",
+        type: event_type,
+        key: key,
+    });
 }
 
 function main() {
@@ -77,8 +87,8 @@ function main() {
     }
     requestAnimationFrame(render);
 
-    document.addEventListener('keydown', onKeyPress);
-    document.addEventListener('keyup', onKeyRelease);
+    document.addEventListener("keydown", (event) => sendKeyEvent("press", event.key));
+    document.addEventListener("keyup", (event) => sendKeyEvent("release", event.key));
 }
 
 window.onload = main;
@@ -364,4 +374,3 @@ function loadShader(gl, type, source) {
 
     return shader;
 }
-
