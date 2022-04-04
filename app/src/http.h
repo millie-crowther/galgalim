@@ -11,10 +11,11 @@ typedef struct http_request_t {
     string_t protocol;
     string_t query_parameters;
     string_t headers;
-    string_t payload;
+    char * payload;
+    uint32_t payload_length;
 } http_request_t;
 
-void http_build_request(http_request_t * request, const string_t buffer);
+void http_build_request(http_request_t * request, char * buffer, uint32_t length);
 int http_start_listening(const char *port);
 void http_serve_forever(const char *PORT);
 void http_close_socket(const int file_descriptor);

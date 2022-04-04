@@ -33,6 +33,23 @@ void route(http_request_t * request){
         printf("HTTP/1.1 200 OK\r\nContent-Type:text/javascript\r\n\r\n%s", frontend_js);
         return; 
     }
+
+    if (string_starts_with(request->request_line_string, string_new("POST /event "))){
+        bool error = false;
+        json_t json = json_load(request->payload, request->payload_length);
+        error |= json.type == JSON_TYPE_ERROR;
+        json_t event_name = json_dictionary_find_key(json, string_new("event_name"));
+        error |= event_name.type == JSON_TYPE_ERROR;
+        fprintf(stderr, "json = %s\nevent name = %s\n", json.buffer, event_name.buffer);
+
+        if (error){
+            printf("HTTP/1.1 422 Unprocessable Entity\r\n\r\n");
+            return;
+        }
+
+        printf("HTTP/1.1 202 Accepted\r\n\r\n");
+        return;
+    }
     
     printf("HTTP/1.1 404 Not Found\r\n\r\nThe requested page was not found.\r\n");
 }
@@ -66,7 +83,7 @@ void http_serve_forever(const char * port){
                 http_close_socket(clientfd);
 
             } else if (process_id == 0){
-                char * buffer = malloc(BUFFER_SIZE + 1);
+                char * buffer = calloc(BUFFER_SIZE + 1, 1);
                 int received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
 
                 if (received_bytes < 0){
@@ -76,9 +93,8 @@ void http_serve_forever(const char * port){
                     fprintf(stderr, "Client disconnected unexpectedly.\n");
 
                 } else {
-                    buffer[received_bytes] = '\0';
                     http_request_t request;
-                    http_build_request(&request, (string_t) { .chars = buffer, .size = received_bytes });
+                    http_build_request(&request, buffer, received_bytes);
 
                     dup2(clientfd, STDOUT_FILENO);
                     close(clientfd);
@@ -160,30 +176,35 @@ int http_start_listening(const char *port){
     return listenfd;
 }
 
-void http_build_request(http_request_t * request, const string_t buffer){
+void http_build_request(http_request_t * request, char * buffer, uint32_t length){
     // see RFC 2616, Section 5.1
     // https://www.rfc-editor.org/rfc/rfc2616#section-5.1
-    string_split(buffer, string_new("\r\n"), &request->request_line_string, &request->payload);
+    string_t payload = (string_t) {
+        .chars = buffer,
+        .size = length
+    };
+    
+    string_split(payload, string_new("\r\n"), &request->request_line_string, &payload);
     string_split(request->request_line_string, string_new(" "), &request->method, &request->uri);
     string_split(request->uri, string_new(" "), &request->uri, &request->protocol);
     string_split(request->uri, string_new("?"), &request->uri, &request->query_parameters);
-    string_split(request->payload, string_new("\r\n\r\n"), &request->headers, &request->payload);
+    string_split(payload, string_new("\r\n\r\n"), &request->headers, &payload);
     request->headers.chars -= 2;
     request->headers.size += 2;
+    request->payload = strstr(buffer, "\r\n\r\n") + 4;
+    request->payload_length = length - (request->payload - buffer);
 
     fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", request->method.size, request->method.chars, request->uri.size, request->uri.chars);
 
     string_t content_length_string = http_header_value(request, string_new("Content-Length"));
-    if (!string_equals(content_length_string, empty_string)){
-        long content_length = atol(content_length_string.chars);
-        if (content_length != 0 && content_length < request->payload.size){
-            request->payload.size = content_length;
-        }
+    long content_length = atol(content_length_string.chars);
+    if (content_length != 0 && content_length < length){
+        request->payload_length = content_length;
     }
 }
 
 string_t http_header_value(const http_request_t * request, const string_t header_name){
-    char key[header_name.size + strlen("\r\n: ") + 1];
+    char key[header_name.size + 5];
     sprintf(key, "\r\n%.*s: ", header_name.size, header_name.chars);
     string_t _;
     string_t header_value;

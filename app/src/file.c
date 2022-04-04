@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 
-static json_type_t json_infer_type(const char * string){
-    switch (*string){
+static json_type_t json_infer_type(const char leading_char){
+    switch (leading_char){
     case '{':
         return JSON_TYPE_DICTIONARY;
     case '[':
@@ -20,7 +20,7 @@ static json_type_t json_infer_type(const char * string){
         return JSON_TYPE_NULL; 
     }
 
-    if (isdigit(*string) || *string == '-'){    
+    if (isdigit(leading_char) || leading_char == '-'){    
         return JSON_TYPE_NUMBER;
     }
 
@@ -85,7 +85,10 @@ json_t json_load(char * buffer, uint32_t length){
 
     uint32_t new_length = character - buffer;
     memset(character, 0, length - new_length);
-    json_type_t type = new_length == 0 ? JSON_TYPE_ERROR : json_infer_type(buffer);
+    json_type_t type = new_length == 0 ? JSON_TYPE_ERROR : json_infer_type(*buffer);
+    if (type != JSON_TYPE_DICTIONARY){
+        type = JSON_TYPE_ERROR;
+    }
     return (json_t) {
         .buffer = buffer,
         .length = new_length,
@@ -112,7 +115,7 @@ json_t json_dictionary_find_key(json_t json, const string_t key){
                 return (json_t) {
                     .buffer = start,
                     .length = end - start,
-                    .type = json_infer_type(start)
+                    .type = json_infer_type(*start)
                 };
                 
             } else if (*start == '[' || *start == '{'){
