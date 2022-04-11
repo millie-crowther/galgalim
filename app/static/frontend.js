@@ -8,7 +8,6 @@ function sendJSONRequest(method, path, payload) {
     var json_string = JSON.stringify(payload);
     request.open(method, `${document.baseURI}${path}`);
     request.send(json_string);
-    console.log(`Just sent ${json_string} to ${document.baseURI}${path} by method ${method}`);
 }
 
 function sendKeyEvent(event_type, key) {
@@ -22,21 +21,31 @@ function sendKeyEvent(event_type, key) {
 }
 
 class Buffer {
-    constructor(gl, buffer) {
-        this.byteLength = buffer.byteLength;
-        this.buffer = gl.createBuffer();
+    constructor(arrayBuffer) {
+        this.arrayBuffer = arrayBuffer;
+        this.buffers = {};
+    }
 
+    static async create(buffer){
+        let uri;
         if (buffer.uri.startsWith("data:application/octet-stream;base64,")) {
-            fetch(buffer.uri)
-                .then((res) => res.arrayBuffer())
-                .then((buffer) => {
-                    this.byteLength = buffer.byteLength;
-                    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
-                    gl.bufferData(gl.ARRAY_BUFFER, buffer, gl.STATIC_DRAW);
-                });
+            uri = buffer.uri;
         } else {
             // TODO
         }
+        let response = await fetch(uri);
+        let arrayBuffer = await response.arrayBuffer();
+        return new Buffer(arrayBuffer);
+    }
+
+    bind(gl, target){
+        if (!this.buffers[target]){
+            this.buffers[target] = gl.createBuffer();
+            gl.bindBuffer(target, this.buffers[target]);
+            gl.bufferData(target, this.arrayBuffer, gl.STATIC_DRAW);
+        }
+        gl.bindBuffer(target, this.buffers[target]);
+        return this.buffers[target];
     }
 }
 
@@ -75,14 +84,11 @@ class Accessor {
         //     5125: 4, // unsigned int
         //     5126: 4, // float
         // }[this.componentType];
-
-        // this.size = this.count * elementSize * componentSize;
-        // this.length = this.bufferView.byteLength / componentSize;
     }
 
     bindAttribute(gl, position) {
         gl.enableVertexAttribArray(position);
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferView.buffer.buffer);
+        this.bufferView.buffer.bind(gl, gl.ARRAY_BUFFER);
         gl.vertexAttribPointer(
             position,
             this.elementSize,
@@ -106,7 +112,7 @@ class Primitive {
         }
     }
 
-    render(gl) {
+    render(gl, uniforms) {
         if (this.material) {
             //         applyTexture(gl, material.baseColorTexture, 0, uniforms.baseColorTexture, uniforms.hasBaseColorTexture);
             //         applyTexture(gl, material.metallicRoughnessTexture, 1, uniforms.metallicRoughnessTexture, uniforms.hasMetallicRoughnessTexture);
@@ -118,8 +124,7 @@ class Primitive {
             //         gl.uniform1f(uniforms.roughnessFactor, material.roughnessFactor);
             //         gl.uniform3f(uniforms.emissiveFactor, material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]);
         }
-
-        
+        this.attributeAccessors.POSITION.bindAttribute(gl, uniforms.position);
         // bindBuffer(gl, uniforms.position, mesh.positions);
         // bindBuffer(gl, uniforms.normal, mesh.normals);
         // bindBuffer(gl, uniforms.tangent, mesh.tangents);
@@ -130,12 +135,13 @@ class Primitive {
         // gl.uniformMatrix4fv(uniforms.mMatrix, false, transform);
 
         if (this.indicesAccessor) {
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indicesAccessor.bufferView.buffer.buffer);
+            let bufferView = this.indicesAccessor.bufferView;
+            bufferView.buffer.bind(gl, gl.ELEMENT_ARRAY_BUFFER);
             gl.drawElements(
                 this.mode,
                 this.indicesAccessor.count,
                 gl.UNSIGNED_SHORT,
-                this.indicesAccessor.bufferView.byteOffset
+                bufferView.byteOffset
             );
         } else {
             let positionAccessor = this.attributeAccessors.POSITION;
@@ -150,9 +156,9 @@ class Mesh {
         this.primitives = mesh.primitives.map((x) => new Primitive(gl, x, accessors, materials));
     }
 
-    render(gl) {
+    render(gl, uniforms) {
         this.primitives.forEach((primitive) => {
-            primitive.render(gl);
+            primitive.render(gl, uniforms);
         });
     }
 }
@@ -169,34 +175,38 @@ class Node {
         this.children = (node.chidren || []).map((x) => new Node(x, meshes));
     }
 
-    render(gl) {
+    render(gl, uniforms) {
         if (this.mesh) {
-            this.mesh.render(gl);
+            this.mesh.render(gl, uniforms);
         }
 
         this.children.forEach((child) => {
-            child.render(gl);
+            child.render(gl, uniforms);
         });
     }
 }
 
 class Model {
-    constructor(gl, gltf) {
-        let buffers = gltf.buffers.map((x) => new Buffer(gl, x));
+    constructor(nodes) {
+        this.nodes = nodes;
+    }
+
+    render(gl, uniforms) {
+        this.nodes.forEach((node) => {
+            node.render(gl, uniforms);
+        });
+    }
+
+    static async create(gl, gltf){
+        let buffers = await Promise.all(gltf.buffers.map(Buffer.create));
         let bufferViews = gltf.bufferViews.map((x) => new BufferView(x, buffers));
         let accessors = gltf.accessors.map((x) => new Accessor(x, bufferViews));
         let materials = gltf.materials.map((x) => new Material(x));
         let meshes = gltf.meshes.map((x) => new Mesh(gl, x, accessors, materials));
         let nodes = gltf.nodes.map((x) => new Node(x, meshes));
         let sceneIndex = gltf.scene || 0;
-        this.nodes = gltf.scenes[sceneIndex].nodes.map((x) => nodes[x]);
-        // console.log(util.inspect(this.nodes, { showHidden: false, depth: null, colors: true }));
-    }
-
-    render(gl) {
-        this.nodes.forEach((node) => {
-            node.render(gl);
-        });
+        let sceneNodes = gltf.scenes[sceneIndex].nodes.map((x) => nodes[x]);
+        return new Model(sceneNodes)
     }
 }
 
@@ -232,12 +242,14 @@ class Program {
         gl.useProgram(this.program);
     }
 
-    getUniformLocation(gl, uniform){
-        return gl.getAttribLocation(this.program, uniform);
+    getUniforms(gl){
+        return {
+            position: gl.getAttribLocation(this.program, 'vertexPosition')
+        }
     }
 }
 
-function main() {
+async function main() {
     const canvas = document.getElementById("glCanvas");
     const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
 
@@ -249,14 +261,13 @@ function main() {
 
     // Vertex shader program
     const vertexShaderSource = `
-        attribute vec4 aVertexPosition;
-        attribute vec4 aVertexColor;
+        attribute vec4 vertexPosition;
         uniform mat4 uModelViewMatrix;
         uniform mat4 uProjectionMatrix;
         varying lowp vec4 vColor;
         void main(void) {
-            gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
-            vColor = aVertexColor;
+            gl_Position = uProjectionMatrix * uModelViewMatrix * vertexPosition;
+            vColor = vec4(1.0, 1.0, 1.0, 1.0);
         }
     `;
 
@@ -297,7 +308,7 @@ function main() {
     // objects we'll be drawing.
     // const buffers = initBuffers(gl);
 
-    model = new Model(gl, JSON.parse(gltfSource))
+    model = await Model.create(gl, JSON.parse(gltfSource))
 
     var then = 0;
 
@@ -444,7 +455,7 @@ window.onload = main;
 // // Draw the scene.
 // //
 function drawScene(gl, program, deltaTime) {
-    gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
+    gl.clearColor(0.5, 0.5, 0.5, 1.0); 
     gl.clearDepth(1.0); // Clear everything
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
     gl.depthFunc(gl.LEQUAL); // Near things obscure far things
@@ -553,7 +564,8 @@ function drawScene(gl, program, deltaTime) {
     //     const offset = 0;
     //     gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
     // }
-    model.render(gl);
+    const uniforms = program.getUniforms(gl);
+    model.render(gl, uniforms);
     
 
     // Update the rotation for the next draw
