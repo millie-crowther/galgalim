@@ -22,6 +22,8 @@
 
 char * homepage_html;
 char * frontend_js;
+char * vertex_glsl;
+char * fragment_glsl;
 
 void route(http_request_t * request){
     if (string_starts_with(request->request_line_string, string_new("GET / "))){
@@ -33,6 +35,17 @@ void route(http_request_t * request){
         printf("HTTP/1.1 200 OK\r\nContent-Type:text/javascript\r\n\r\n%s", frontend_js);
         return; 
     }
+
+    if (string_starts_with(request->request_line_string, string_new("GET /vertex.glsl "))){
+        printf("HTTP/1.1 200 OK\r\n\r\n%s", vertex_glsl);
+        return; 
+    }
+
+    if (string_starts_with(request->request_line_string, string_new("GET /fragment.glsl "))){
+        printf("HTTP/1.1 200 OK\r\n\r\n%s", fragment_glsl);
+        return; 
+    }
+
 
     if (string_starts_with(request->request_line_string, string_new("POST /event "))){
         bool error = false;
@@ -119,16 +132,15 @@ void http_serve_forever(const char * port){
 int http_start_listening(const char *port){
     struct addrinfo hints, *addresses, *address_pointer;
 
-    homepage_html = file_read("/static/homepage.html");
-    if (homepage_html == NULL){
-        fprintf(stderr, "Error loading HTML for homepage.\n");
-        return -1;
-    }
+    char ** pages[] = {&homepage_html, &frontend_js, &vertex_glsl, &fragment_glsl};
+    const char * filenames[] = {"/static/homepage.html", "/static/frontend.js", "/static/vertex.glsl", "/static/fragment.glsl"};
 
-    frontend_js = file_read("/static/frontend.js");
-    if (frontend_js == NULL){
-        fprintf(stderr, "Error loading JavaScript for frontend.\n");
-        return -1;
+    for (int i = 0; i < 4; i++){
+        *pages[i] = file_read(filenames[i]);
+        if (*pages[i] == NULL){
+            fprintf(stderr, "Error loading static content\n");
+            return -1;
+        }
     }
 
     // getaddrinfo for host

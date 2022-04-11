@@ -26,7 +26,7 @@ class Buffer {
         this.buffers = {};
     }
 
-    static async create(buffer){
+    static async create(buffer) {
         let uri;
         if (buffer.uri.startsWith("data:application/octet-stream;base64,")) {
             uri = buffer.uri;
@@ -38,8 +38,8 @@ class Buffer {
         return new Buffer(arrayBuffer);
     }
 
-    bind(gl, target){
-        if (!this.buffers[target]){
+    bind(gl, target) {
+        if (!this.buffers[target]) {
             this.buffers[target] = gl.createBuffer();
             gl.bindBuffer(target, this.buffers[target]);
             gl.bufferData(target, this.arrayBuffer, gl.STATIC_DRAW);
@@ -197,7 +197,7 @@ class Model {
         });
     }
 
-    static async create(gl, gltf){
+    static async create(gl, gltf) {
         let buffers = await Promise.all(gltf.buffers.map(Buffer.create));
         let bufferViews = gltf.bufferViews.map((x) => new BufferView(x, buffers));
         let accessors = gltf.accessors.map((x) => new Accessor(x, bufferViews));
@@ -206,16 +206,16 @@ class Model {
         let nodes = gltf.nodes.map((x) => new Node(x, meshes));
         let sceneIndex = gltf.scene || 0;
         let sceneNodes = gltf.scenes[sceneIndex].nodes.map((x) => nodes[x]);
-        return new Model(sceneNodes)
+        return new Model(sceneNodes);
     }
 }
 
 class Shader {
     // TODO: load source from backend in async
-    constructor(gl, source, type){
+    constructor(gl, source, type) {
         this.shader = gl.createShader(type);
-        if (!this.shader){
-            throw new Error('gl.createShader returned null');
+        if (!this.shader) {
+            throw new Error("gl.createShader returned null");
         }
         gl.shaderSource(this.shader, source);
         gl.compileShader(this.shader);
@@ -224,28 +224,32 @@ class Shader {
             console.error(gl.getShaderInfoLog(this.shader));
         }
     }
+
+    static async create(gl, uri, type){
+        let response = await fetch(uri);
+        let source = await response.text();
+        return new Shader(gl, source, type);
+    }
 }
 
 class Program {
-    constructor(gl, shaders){
+    constructor(gl, shaders) {
         this.program = gl.createProgram();
-        if (!this.program){
-            throw new Error('gl.createProgram returned null');
+        if (!this.program) {
+            throw new Error("gl.createProgram returned null");
         }
 
-        shaders.forEach(shader => gl.attachShader(this.program, shader.shader))
+        shaders.forEach((shader) => gl.attachShader(this.program, shader.shader));
         gl.linkProgram(this.program);
-    
+
         if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
             console.error(gl.getProgramInfoLog(this.program));
         }
         gl.useProgram(this.program);
-    }
 
-    getUniforms(gl){
-        return {
-            position: gl.getAttribLocation(this.program, 'vertexPosition')
-        }
+        this.uniforms = {
+            position: gl.getAttribLocation(this.program, "vertexPosition"),
+        };
     }
 }
 
@@ -260,28 +264,28 @@ async function main() {
     }
 
     // Vertex shader program
-    const vertexShaderSource = `
-        attribute vec4 vertexPosition;
-        uniform mat4 uModelViewMatrix;
-        uniform mat4 uProjectionMatrix;
-        varying lowp vec4 vColor;
-        void main(void) {
-            gl_Position = uProjectionMatrix * uModelViewMatrix * vertexPosition;
-            vColor = vec4(1.0, 1.0, 1.0, 1.0);
-        }
-    `;
+    // const vertexShaderSource = `
+    //     attribute vec4 vertexPosition;
+    //     uniform mat4 uModelViewMatrix;
+    //     uniform mat4 uProjectionMatrix;
+    //     varying lowp vec4 vColor;
+    //     void main(void) {
+    //         gl_Position = uProjectionMatrix * uModelViewMatrix * vertexPosition;
+    //         vColor = vec4(1.0, 1.0, 1.0, 1.0);
+    //     }
+    // `;
 
-    // Fragment shader program
-    const fragmentShaderSource = `
-        varying lowp vec4 vColor;
-        void main(void) {
-            gl_FragColor = vColor;
-        }
-    `;
-    let shaders = [
-        new Shader(gl, vertexShaderSource, gl.VERTEX_SHADER),
-        new Shader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER)
-    ]
+    // // Fragment shader program
+    // const fragmentShaderSource = `
+    //     varying lowp vec4 vColor;
+    //     void main(void) {
+    //         gl_FragColor = vColor;
+    //     }
+    // `;
+    let shaders = await Promise.all([
+        Shader.create(gl, '/vertex.glsl', gl.VERTEX_SHADER),
+        Shader.create(gl, '/fragment.glsl', gl.FRAGMENT_SHADER),
+    ]);
     let program = new Program(gl, shaders);
 
     // Initialize a shader program; this is where all the lighting
@@ -293,22 +297,22 @@ async function main() {
     // for aVertexPosition, aVertexColor and also
     // look up uniform locations.
     // const programInfo = {
-        // program: shaderProgram,
-        // attribLocations: {
-        //     vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
-        //     vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
-        // },
-        // uniformLocations: {
-        //     projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
-        //     modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
-        // },
+    // program: shaderProgram,
+    // attribLocations: {
+    //     vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+    //     vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
+    // },
+    // uniformLocations: {
+    //     projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
+    //     modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
+    // },
     // };
 
     // Here's where we call the routine that builds all the
     // objects we'll be drawing.
     // const buffers = initBuffers(gl);
 
-    model = await Model.create(gl, JSON.parse(gltfSource))
+    model = await Model.create(gl, JSON.parse(gltfSource));
 
     var then = 0;
 
@@ -455,7 +459,7 @@ window.onload = main;
 // // Draw the scene.
 // //
 function drawScene(gl, program, deltaTime) {
-    gl.clearColor(0.5, 0.5, 0.5, 1.0); 
+    gl.clearColor(0.5, 0.5, 0.5, 1.0);
     gl.clearDepth(1.0); // Clear everything
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
     gl.depthFunc(gl.LEQUAL); // Near things obscure far things
@@ -564,9 +568,7 @@ function drawScene(gl, program, deltaTime) {
     //     const offset = 0;
     //     gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
     // }
-    const uniforms = program.getUniforms(gl);
-    model.render(gl, uniforms);
-    
+    model.render(gl, program.uniforms);
 
     // Update the rotation for the next draw
     cubeRotation += deltaTime;
@@ -616,7 +618,6 @@ function drawScene(gl, program, deltaTime) {
 
 //     return shader;
 // }
-
 
 gltfSource = `
 {
@@ -721,4 +722,4 @@ gltfSource = `
         }
     ]
 }
-`
+`;
