@@ -3,8 +3,8 @@ let instanceID = null;
 let playerID = null;
 let model = null;
 
-let camera = { 
-    rY: -0.9600000000000005, 
+let camera = {
+    rY: -0.9600000000000005,
     position: [-191.08451554960882, 0, -143.05347775986664],
 };
 
@@ -216,6 +216,34 @@ class Node {
     }
 }
 
+class Sampler {
+    constructor(gl, sampler){
+        this.magFilter = sampler.magFilter;
+        this.minFilter = sampler.minFilter;
+        this.wrapS = sampler.wrapS || gl.REPEAT;
+        this.wrapT = sampler.wrapT || gl.REPEAT;
+    }
+}
+
+class Texture {
+    constructor(gl, texture, samplers, images){
+        this.sampler = samplers[texture.sampler] || new Sampler(gl, {});
+        this.texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, images[texture.source]);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this.sampler.minFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this.sampler.magFilter);
+
+        let ext = gl.getExtension('EXT_texture_filter_anisotropic');
+        if (ext) {
+            let max = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+            gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max);
+        }
+
+        gl.generateMipmap(gl.TEXTURE_2D);
+    }
+}
+
 class Model {
     constructor(nodes) {
         this.nodes = nodes;
@@ -229,17 +257,35 @@ class Model {
 
     static async create(gl, gltf) {
         let buffers = await Promise.all(gltf.buffers.map(Buffer.create));
+        let images = await Promise.all((gltf.images || []).map(createImage));
+        let samplers = (gltf.samplers || []).map(x => new Sampler(gl, x));
+        let textures = (gltf.textures || []).map(x => new Texture(gl, x, samplers, images));
+
         let bufferViews = gltf.bufferViews.map((x) => new BufferView(x, buffers));
         let accessors = gltf.accessors.map((x) => new Accessor(x, bufferViews));
         let materials = gltf.materials.map((x) => new Material(x));
         let meshes = gltf.meshes.map((x) => new Mesh(gl, x, accessors, materials));
         let nodes = gltf.nodes.map((x) => new Node(x, meshes));
         nodes.forEach((x) => x.linkChildren(nodes));
-
         let sceneIndex = gltf.scene || 0;
         let sceneNodes = gltf.scenes[sceneIndex].nodes.map((x) => nodes[x]);
         return new Model(sceneNodes);
     }
+}
+
+function createImage(imageData) {
+    let image = new Image();
+    let uri;
+    if (imageData.uri.startsWith("data:")) {
+        uri = imageData.uri;
+    } else {
+        // TODO
+    }
+    return new Promise((resolve, reject) => {
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = uri;
+    });
 }
 
 class Shader {
