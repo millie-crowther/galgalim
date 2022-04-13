@@ -149,13 +149,12 @@ class Primitive {
             //         gl.uniform1f(uniforms.metallicFactor, material.metallicFactor);
             //         gl.uniform1f(uniforms.roughnessFactor, material.roughnessFactor);
             //         gl.uniform3f(uniforms.emissiveFactor, material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]);
-            console.log('program = ', program);
-            
             if (this.material.colourTexture){
-                this.material.colourTexture.bind(gl, gl.TEXTURE0, program.uniforms.colourTexture);
+                this.material.colourTexture.bind(gl, 0, program.uniforms.colourTexture);
             }
         }
         this.attributeAccessors.POSITION.bindAttribute(gl, program.attributes.position);
+        this.attributeAccessors.TEXCOORD_0.bindAttribute(gl, program.attributes.textureCoordinate);
 
         // bindBuffer(gl, uniforms.position, mesh.positions);
         // bindBuffer(gl, uniforms.normal, mesh.normals);
@@ -254,7 +253,7 @@ class Texture {
     }
 
     bind(gl, target, position){
-        gl.activeTexture(target);
+        gl.activeTexture(gl.TEXTURE0 + target);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
         gl.uniform1i(position, target);
     }
@@ -342,6 +341,7 @@ class Program {
 
         this.attributes = {
             position: gl.getAttribLocation(this.program, "vertexPosition"),
+            textureCoordinate: gl.getAttribLocation(this.program, "vertexTextureCoordinate"),
         };
 
         this.uniforms = {
