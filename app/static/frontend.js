@@ -138,7 +138,7 @@ class Primitive {
         }
     }
 
-    render(gl, uniforms) {
+    render(gl, program) {
         if (this.material) {
             //         applyTexture(gl, material.baseColorTexture, 0, uniforms.baseColorTexture, uniforms.hasBaseColorTexture);
             //         applyTexture(gl, material.metallicRoughnessTexture, 1, uniforms.metallicRoughnessTexture, uniforms.hasMetallicRoughnessTexture);
@@ -149,8 +149,14 @@ class Primitive {
             //         gl.uniform1f(uniforms.metallicFactor, material.metallicFactor);
             //         gl.uniform1f(uniforms.roughnessFactor, material.roughnessFactor);
             //         gl.uniform3f(uniforms.emissiveFactor, material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]);
+            console.log('program = ', program);
+            
+            if (this.material.colourTexture){
+                this.material.colourTexture.bind(gl, gl.TEXTURE0, program.uniforms.colourTexture);
+            }
         }
-        this.attributeAccessors.POSITION.bindAttribute(gl, uniforms.position);
+        this.attributeAccessors.POSITION.bindAttribute(gl, program.attributes.position);
+
         // bindBuffer(gl, uniforms.position, mesh.positions);
         // bindBuffer(gl, uniforms.normal, mesh.normals);
         // bindBuffer(gl, uniforms.tangent, mesh.tangents);
@@ -182,15 +188,19 @@ class Mesh {
         this.primitives = mesh.primitives.map((x) => new Primitive(gl, x, accessors, materials));
     }
 
-    render(gl, uniforms) {
+    render(gl, program) {
         this.primitives.forEach((primitive) => {
-            primitive.render(gl, uniforms);
+            primitive.render(gl, program);
         });
     }
 }
 
 class Material {
-    constructor(data) {
+    constructor(material, textures) {
+        this.colourTexture = null;
+        if (material.pbrMetallicRoughness && material.pbrMetallicRoughness.baseColorTexture){
+            this.colourTexture = textures[material.pbrMetallicRoughness.baseColorTexture.index];
+        }
         // TODO
     }
 }
@@ -201,13 +211,13 @@ class Node {
         this.childrenIndices = node.children || [];
     }
 
-    render(gl, uniforms) {
+    render(gl, program) {
         if (this.mesh) {
-            this.mesh.render(gl, uniforms);
+            this.mesh.render(gl, program);
         }
 
         this.children.forEach((child) => {
-            child.render(gl, uniforms);
+            child.render(gl, program);
         });
     }
 
@@ -242,6 +252,12 @@ class Texture {
 
         gl.generateMipmap(gl.TEXTURE_2D);
     }
+
+    bind(gl, target, position){
+        gl.activeTexture(target);
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        gl.uniform1i(position, target);
+    }
 }
 
 class Model {
@@ -249,9 +265,9 @@ class Model {
         this.nodes = nodes;
     }
 
-    render(gl, uniforms) {
+    render(gl, program) {
         this.nodes.forEach((node) => {
-            node.render(gl, uniforms);
+            node.render(gl, program);
         });
     }
 
@@ -263,7 +279,7 @@ class Model {
 
         let bufferViews = gltf.bufferViews.map((x) => new BufferView(x, buffers));
         let accessors = gltf.accessors.map((x) => new Accessor(x, bufferViews));
-        let materials = gltf.materials.map((x) => new Material(x));
+        let materials = gltf.materials.map((x) => new Material(x, textures));
         let meshes = gltf.meshes.map((x) => new Mesh(gl, x, accessors, materials));
         let nodes = gltf.nodes.map((x) => new Node(x, meshes));
         nodes.forEach((x) => x.linkChildren(nodes));
@@ -324,8 +340,12 @@ class Program {
         }
         gl.useProgram(this.program);
 
-        this.uniforms = {
+        this.attributes = {
             position: gl.getAttribLocation(this.program, "vertexPosition"),
+        };
+
+        this.uniforms = {
+            colourTexture: gl.getUniformLocation(this.program, "colourTexture"),
         };
     }
 }
@@ -483,7 +503,7 @@ function drawScene(gl, program, deltaTime) {
     //     const offset = 0;
     //     gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
     // }
-    model.render(gl, program.uniforms);
+    model.render(gl, program);
 
     // Update the rotation for the next draw
     cubeRotation += deltaTime;
