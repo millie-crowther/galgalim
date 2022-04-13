@@ -3,16 +3,17 @@ let instanceID = null;
 let playerID = null;
 let model = null;
 
-let camera = {
-    rY: -0.9600000000000005,
-    position: [-191.08451554960882, 0, -143.05347775986664],
-};
+let camera = { rY: 0.7000000000000003, position: [115.83230690847775, -40, -149.42278735255067] };
 
-function sendJSONRequest(method, path, payload) {
-    var request = new XMLHttpRequest();
-    var json_string = JSON.stringify(payload);
-    request.open(method, `${document.baseURI}${path}`);
-    request.send(json_string);
+function sendJSONRequest(method, uri, payload) {
+    fetch(uri, {
+        method: method,
+        headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
 }
 
 function sendKeyEvent(event_type, key) {
@@ -45,7 +46,7 @@ function sendKeyEvent(event_type, key) {
         camera.position[1] += d;
     }
 
-    sendJSONRequest("POST", "event", {
+    sendJSONRequest("POST", "/event", {
         instance_id: instanceID,
         player_id: playerID,
         name: "keyboard",
@@ -140,28 +141,12 @@ class Primitive {
 
     render(gl, program) {
         if (this.material) {
-            //         applyTexture(gl, material.baseColorTexture, 0, uniforms.baseColorTexture, uniforms.hasBaseColorTexture);
-            //         applyTexture(gl, material.metallicRoughnessTexture, 1, uniforms.metallicRoughnessTexture, uniforms.hasMetallicRoughnessTexture);
-            //         applyTexture(gl, material.emissiveTexture, 2, uniforms.emissiveTexture, uniforms.hasEmissiveTexture);
-            //         applyTexture(gl, material.normalTexture, 3, uniforms.normalTexture, uniforms.hasNormalTexture);
-            //         applyTexture(gl, material.occlusionTexture, 4, uniforms.occlusionTexture, uniforms.hasOcclusionTexture);
-            //         gl.uniform4f(uniforms.baseColorFactor, material.baseColorFactor[0], material.baseColorFactor[1], material.baseColorFactor[2], material.baseColorFactor[3]);
-            //         gl.uniform1f(uniforms.metallicFactor, material.metallicFactor);
-            //         gl.uniform1f(uniforms.roughnessFactor, material.roughnessFactor);
-            //         gl.uniform3f(uniforms.emissiveFactor, material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]);
-            if (this.material.colourTexture){
+            if (this.material.colourTexture) {
                 this.material.colourTexture.bind(gl, 0, program.uniforms.colourTexture);
             }
         }
         this.attributeAccessors.POSITION.bindAttribute(gl, program.attributes.position);
         this.attributeAccessors.TEXCOORD_0.bindAttribute(gl, program.attributes.textureCoordinate);
-
-        // bindBuffer(gl, uniforms.position, mesh.positions);
-        // bindBuffer(gl, uniforms.normal, mesh.normals);
-        // bindBuffer(gl, uniforms.tangent, mesh.tangents);
-        // bindBuffer(gl, uniforms.texCoord, mesh.texCoord);
-        // bindBuffer(gl, uniforms.joints, mesh.joints);
-        // bindBuffer(gl, uniforms.weights, mesh.weights);
 
         // gl.uniformMatrix4fv(uniforms.mMatrix, false, transform);
 
@@ -197,7 +182,7 @@ class Mesh {
 class Material {
     constructor(material, textures) {
         this.colourTexture = null;
-        if (material.pbrMetallicRoughness && material.pbrMetallicRoughness.baseColorTexture){
+        if (material.pbrMetallicRoughness && material.pbrMetallicRoughness.baseColorTexture) {
             this.colourTexture = textures[material.pbrMetallicRoughness.baseColorTexture.index];
         }
         // TODO
@@ -226,7 +211,7 @@ class Node {
 }
 
 class Sampler {
-    constructor(gl, sampler){
+    constructor(gl, sampler) {
         this.magFilter = sampler.magFilter;
         this.minFilter = sampler.minFilter;
         this.wrapS = sampler.wrapS || gl.REPEAT;
@@ -235,7 +220,7 @@ class Sampler {
 }
 
 class Texture {
-    constructor(gl, texture, samplers, images){
+    constructor(gl, texture, samplers, images) {
         this.sampler = samplers[texture.sampler] || new Sampler(gl, {});
         this.texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
@@ -243,7 +228,7 @@ class Texture {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, this.sampler.minFilter);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, this.sampler.magFilter);
 
-        let ext = gl.getExtension('EXT_texture_filter_anisotropic');
+        let ext = gl.getExtension("EXT_texture_filter_anisotropic");
         if (ext) {
             let max = gl.getParameter(ext.MAX_TEXTURE_MAX_ANISOTROPY_EXT);
             gl.texParameterf(gl.TEXTURE_2D, ext.TEXTURE_MAX_ANISOTROPY_EXT, max);
@@ -252,7 +237,7 @@ class Texture {
         gl.generateMipmap(gl.TEXTURE_2D);
     }
 
-    bind(gl, target, position){
+    bind(gl, target, position) {
         gl.activeTexture(gl.TEXTURE0 + target);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
         gl.uniform1i(position, target);
@@ -273,8 +258,8 @@ class Model {
     static async create(gl, gltf) {
         let buffers = await Promise.all(gltf.buffers.map(Buffer.create));
         let images = await Promise.all((gltf.images || []).map(createImage));
-        let samplers = (gltf.samplers || []).map(x => new Sampler(gl, x));
-        let textures = (gltf.textures || []).map(x => new Texture(gl, x, samplers, images));
+        let samplers = (gltf.samplers || []).map((x) => new Sampler(gl, x));
+        let textures = (gltf.textures || []).map((x) => new Texture(gl, x, samplers, images));
 
         let bufferViews = gltf.bufferViews.map((x) => new BufferView(x, buffers));
         let accessors = gltf.accessors.map((x) => new Accessor(x, bufferViews));
@@ -437,76 +422,15 @@ function drawScene(gl, program, deltaTime) {
         modelViewMatrix, // matrix to translate
         camera.position
     ); // amount to translate
-    // mat4.rotate(
-    //     modelViewMatrix, // destination matrix
-    //     modelViewMatrix, // matrix to rotate
-    //     0.5,
-    //     [1, 0, 0]
-    // ); // axis to rotate around (X)
-
-    // Tell WebGL how to pull out the positions from the position
-    // buffer into the vertexPosition attribute
-    // {
-    //     const numComponents = 3;
-    //     const type = gl.FLOAT;
-    //     const normalize = false;
-    //     const stride = 0;
-    //     const offset = 0;
-    //     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
-    //     gl.vertexAttribPointer(
-    //         programInfo.attribLocations.vertexPosition,
-    //         numComponents,
-    //         type,
-    //         normalize,
-    //         stride,
-    //         offset
-    //     );
-    //     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
-    // }
-
-    // Tell WebGL how to pull out the colors from the color buffer
-    // into the vertexColor attribute.
-    // {
-    //     const numComponents = 4;
-    //     const type = gl.FLOAT;
-    //     const normalize = false;
-    //     const stride = 0;
-    //     const offset = 0;
-    //     gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
-    //     gl.vertexAttribPointer(
-    //         programInfo.attribLocations.vertexColor,
-    //         numComponents,
-    //         type,
-    //         normalize,
-    //         stride,
-    //         offset
-    //     );
-    //     gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
-    // }
-
-    // Tell WebGL which indices to use to index the vertices
-    // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
-
-    // Tell WebGL to use our program when drawing
     gl.useProgram(program.program);
 
     let projectionMatrixLocation = gl.getUniformLocation(program.program, "uProjectionMatrix");
     let modelViewMatrixLocation = gl.getUniformLocation(program.program, "uModelViewMatrix");
 
-    // Set the shader uniforms
     gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
     gl.uniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix);
 
-    // {
-    //     const vertexCount = 36;
-    //     const type = gl.UNSIGNED_SHORT;
-    //     const offset = 0;
-    //     gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
-    // }
     model.render(gl, program);
-
-    // Update the rotation for the next draw
-    cubeRotation += deltaTime;
 }
 
 gltfSource = `

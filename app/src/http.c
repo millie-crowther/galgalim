@@ -21,6 +21,7 @@
 #define BUFFER_SIZE 65536
 
 char * homepage_html;
+char * game_html;
 char * frontend_js;
 char * vertex_glsl;
 char * fragment_glsl;
@@ -28,6 +29,11 @@ char * fragment_glsl;
 void route(http_request_t * request){
     if (string_starts_with(request->request_line_string, string_new("GET / "))){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", homepage_html);
+        return; 
+    }
+
+    if (string_starts_with(request->request_line_string, string_new("GET /game.html "))){
+        printf("HTTP/1.1 200 OK\r\n\r\n%s", game_html);
         return; 
     }
     
@@ -132,10 +138,10 @@ void http_serve_forever(const char * port){
 int http_start_listening(const char *port){
     struct addrinfo hints, *addresses, *address_pointer;
 
-    char ** pages[] = {&homepage_html, &frontend_js, &vertex_glsl, &fragment_glsl};
-    const char * filenames[] = {"/static/homepage.html", "/static/frontend.js", "/static/vertex.glsl", "/static/fragment.glsl"};
+    char ** pages[] = {&homepage_html, &game_html, &frontend_js, &vertex_glsl, &fragment_glsl};
+    const char * filenames[] = {"/static/homepage.html", "/static/game.html", "/static/frontend.js", "/static/vertex.glsl", "/static/fragment.glsl"};
 
-    for (int i = 0; i < 4; i++){
+    for (uint32_t i = 0; i < sizeof(filenames) / sizeof(*filenames); i++){
         *pages[i] = file_read(filenames[i]);
         if (*pages[i] == NULL){
             fprintf(stderr, "Error loading static content\n");
