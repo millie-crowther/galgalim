@@ -11,6 +11,7 @@ static char json_escaped_character(const char * string){
     }
 
     switch (string[1]){
+    case '/':
     case '\\':
     case '"':
         return string[1];
