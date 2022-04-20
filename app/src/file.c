@@ -164,11 +164,8 @@ json_t json_dictionary_find_key(json_t json, const char * key){
     };
 
     json_key_t * data_key = (json_key_t *) bsearch(&json_key, json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
-    if (data_key == NULL){
-        return (json_t){ .data = NULL };
-    }
+    const char * data = data_key == NULL ? NULL : data_key->key + strlen(key) + 2;
 
-    const char * data = data_key->key + strlen(key) + 2;
     return (json_t){
         .data = data,
         .keys = json.keys,
@@ -194,7 +191,7 @@ const char * json_get_string(const json_t json){
 
 void json_free(json_t * json){
     free(json->keys);
-    *json = (json_t){ 
+    *json = (json_t) { 
         .data = NULL, 
         .key_count = 0, 
         .keys = NULL,
