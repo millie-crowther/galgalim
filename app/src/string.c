@@ -15,28 +15,33 @@ bool string_is_empty(const string_t string){
     return string.size == 0;
 }
 
-void string_split(const string_t string, const string_t delimiter, string_t * head, string_t * tail){
+void string_split(const string_t string, const char * delimiter, string_t * head, string_t * tail){
     *tail = string;
-    while (!string_starts_with(*tail, delimiter) && tail->size >= delimiter.size){
+    int delimiter_size = strlen(delimiter);
+    while (!string_starts_with(tail->chars, delimiter) && tail->size >= delimiter_size){
         tail->chars++;
         tail->size--;
     }
 
-    if (tail->size < delimiter.size){
+    if (tail->size < delimiter_size){
         *head = string;
         *tail = empty_string;
     } else {
         head->chars = string.chars;
         head->size = string.size - tail->size;
-        tail->chars += delimiter.size;
-        tail->size -= delimiter.size;
+        tail->chars += delimiter_size;
+        tail->size -= delimiter_size;
     }
 }
 
-bool string_equals(const string_t a, const string_t b){
-    return a.size == b.size && strncmp(a.chars, b.chars, a.size) == 0;
+bool string_starts_with(const char * string, const char * prefix){
+    return memcmp(string, prefix, strlen(prefix)) == 0;
 }
 
-bool string_starts_with(const string_t string, const string_t prefix){
-    return prefix.size <= string.size && strncmp(string.chars, prefix.chars, prefix.size) == 0;
+bool string_contains_character(const char * string, const char character){
+    return strchr(string, character) != NULL;
+}
+
+bool string_equals(const char * a, const char * b){
+    return a == b || strcmp(a, b) == 0;
 }

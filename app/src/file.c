@@ -5,6 +5,55 @@
 #include <stdio.h>
 #include <string.h>
 
+static const char escaped_characters[] = {
+    ['"'] = '"',
+    ['\\'] = '\\',
+    ['b'] = '\b',
+    ['f'] = '\f',
+    ['n'] = '\n',
+    ['r'] = '\r',
+    ['t'] = '\t',
+};
+
+static int json_key_comparator(const void * a, const void * b){
+    const json_key_t * ka = (const json_key_t *) a;
+    const json_key_t * kb = (const json_key_t *) b;
+
+    if (ka->scope != kb->scope){
+        return (ka->scope > kb->scope) - (ka->scope < kb->scope);
+    }
+
+    return strcmp(ka->key, kb->key);
+}
+
+static char * load_dictionary_keys(json_t * json, char * scope, char * end){
+    char * c = scope + 1;
+    char * key;
+    while (c != NULL && c < end){
+        for (; c < end && !string_contains_character("\"{}", *c); c++){}
+        if (c >= end){
+            break;
+        }
+        
+        if (*c == '{'){
+            c = load_dictionary_keys(json, c, end);
+        } else if (*c == '}'){
+            return c + 1;
+        } else if (*c == '"'){
+            key = c + 1;
+            c += strlen(c) + 1;
+            if (c < end && *c == ':'){
+                json->keys[json->key_count] = (json_key_t){
+                    .key = key,
+                    .scope = scope,
+                };
+                json->key_count++;
+            }
+        }
+    }
+    return NULL;
+}
+
 char * file_read(const char * filename){
     FILE * file = fopen(filename, "r");
     if (file == NULL) {
@@ -24,129 +73,111 @@ char * file_read(const char * filename){
     return string;
 }
 
-static json_type_t json_infer_type(const char leading_char){
-    switch (leading_char){
-    case '{':
-        return JSON_TYPE_DICTIONARY;
-    case '[':
-        return JSON_TYPE_LIST;
-    case '"':
-        return JSON_TYPE_STRING;
-    case 't':
-    case 'f':
-        return JSON_TYPE_BOOLEAN;
-    case 'n':
-        return JSON_TYPE_NULL; 
-    }
+json_type_t json_get_type(const json_t json){
+    if (json.data != NULL){
+        switch (*json.data){
+        case '{':
+            return JSON_TYPE_DICTIONARY;
+        case '[':
+            return JSON_TYPE_LIST;
+        case '"':
+            return JSON_TYPE_STRING;
+        case 't':
+        case 'f':
+            return JSON_TYPE_BOOLEAN;
+        case 'n':
+            return JSON_TYPE_NULL; 
+        }
 
-    if (isdigit(leading_char) || leading_char == '-'){    
-        return JSON_TYPE_NUMBER;
+        if (isdigit(*json.data) || *json.data == '-'){    
+            return JSON_TYPE_NUMBER;
+        }
     }
 
     return JSON_TYPE_ERROR;
 }
 
-static char * json_skip_string(char * start, const char * end){
-    start++;
-    for (; start < end && *start != '"'; start += 1 + (*start == '\\')){}
-    start++;
-    return start;
-}
-
-static char * json_skip_collection(char * start, const char * end, const char open_bracket){
-    char close_bracket = open_bracket == '[' ? ']' : '}';
-    start++;
-    while (start < end && *start != close_bracket){
-        if (*start == open_bracket){
-            start = json_skip_collection(start, end, open_bracket);
-        } else if (*start == '"'){
-            start = json_skip_string(start, end);
-        } else {
-            start++;
+json_t json_load(char * input_string){
+    int number_of_keys = 0;
+    for (char * c = input_string; c != '\0'; c++){
+        if (*c == ':'){
+            number_of_keys++;
         }
     }
-    start++;
-    return start;
-}
-
-json_t json_load(char * buffer, uint32_t length){
-    bool is_in_string = false;
-    char * character = buffer;
-    for (uint32_t i = 0; i < length; i++){
-        if (buffer[i] == '"' && (i == 0 || buffer[i - 1] != '\'')){
-            is_in_string = !is_in_string;
-        }
-
-        if (is_in_string || !isspace(buffer[i])){
-            *character = buffer[i];
-            character++;
-        }
-    }
-
-    uint32_t new_length = character - buffer;
-    memset(character, 0, length - new_length);
-    json_type_t type = new_length == 0 ? JSON_TYPE_ERROR : json_infer_type(*buffer);
-    if (type != JSON_TYPE_DICTIONARY){
-        type = JSON_TYPE_ERROR;
-    }
-    return (json_t) {
-        .buffer = buffer,
-        .length = new_length,
-        .type = type,
+    
+    uint32_t length = strlen(input_string);
+    char * data = malloc(length + 1 + number_of_keys * sizeof(json_key_t));
+    json_t json = {
+        .data = data,
+        .keys = data + length + 1,
+        .scope = data,
+        .key_count = 0,
     };
-}
 
-json_t json_dictionary_find_key(json_t json, const string_t key){
-    char key_quoted[key.size + 4];
-    sprintf(key_quoted, "\"%.*s\":", key.size, key.chars);
-    string_t key_quoted_string = string_new(key_quoted);
+    int number_of_keys = 0;
+    bool is_in_string = false;
+    char * output_string = json.data;
+    for (char * c = input_string; *c != '\0'; c++){
+        if (c[0] == ':'){
+            number_of_keys++;
+        }
 
-    char * start = json.buffer;
-    const char * end = start + json.length;
-
-    start++;
-    while (start < end && *start != '}'){ 
-        bool is_found = string_starts_with((string_t){.chars = start, .size = end - start}, key_quoted_string);
-        start = json_skip_string(start, end);
-        start++;
-
-        if (start < end){
-            if (is_found){
-                return (json_t) {
-                    .buffer = start,
-                    .length = end - start,
-                    .type = json_infer_type(*start)
-                };
-                
-            } else if (*start == '[' || *start == '{'){
-                start = json_skip_collection(start, end, *start);
-            } else if (*start == '"'){
-                start = json_skip_string(start, end);
-            } 
-            for (; start < end && *start != ',' && *start != '}'; start++){}
-            start += start < end && *start == ',';
+        if (c[0] == '"'){
+            *output_string = is_in_string ? '\0' : '"';
+            is_in_string = !is_in_string;
+            output_string++;
+        } else if (is_in_string && c[0] == '\\' && string_contains_character("\"\\bnfrt", c[1])){
+            *output_string = escaped_characters[c[1]];
+            output_string += 2;
+        } else if (is_in_string || !isspace(c[0])){
+            *output_string = c[0];
+            output_string++;
         }
     }
+    *output_string = '\0';
 
-    return (json_t) { .type = JSON_TYPE_ERROR };
+    load_dictionary_keys(&json, json.data, json.data + length);
+    qsort(json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
+
+    return json;
+}
+
+json_t json_dictionary_find_key(json_t json, const char * key){
+    if (json.scope == NULL || json_get_type(json) != JSON_TYPE_DICTIONARY){
+        return (json_t){ .data = NULL };
+    }
+
+    json_key_t json_key = {
+        .key = key,
+        .scope = json.scope
+    };
+
+    json_key_t * data_key = (json_key_t *) bsearch(&json_key, json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
+    if (data_key == NULL){
+        return (json_t){ .data = NULL };
+    }
+
+    char * data = data_key->key + strlen(key) + 2;
+    return (json_t){
+        .data = data,
+        .scope = *data == '{' ? data : NULL,
+        .keys = json.keys,
+        .key_count = json.key_count,
+    };
 }
 
 bool json_get_boolean(const json_t json){
-    return json.buffer[0] == 't';
+    return memcmp(json.data, "true", 4) == 0;
 }
 
 int64_t json_get_integer(const json_t json){
-    return atol(json.buffer);
+    return strtol(json.data, NULL, 10);
 }
 
 double json_get_float(const json_t json){
-    return atof(json.buffer);
+    return strtod(json.data, NULL);
 }
 
-string_t json_get_string(const json_t json){
-    char * string_end = json_skip_string(json.buffer, json.buffer + json.length);
-    return (string_t) {
-        .chars = json.buffer + 1,
-        .size = string_end - json.buffer - 2
-    };
+const char * json_get_string(const json_t json){
+    return json_get_type(json) == JSON_TYPE_STRING ? json.data + 1 : NULL;
 }

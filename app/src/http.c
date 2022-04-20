@@ -27,42 +27,42 @@ char * vertex_glsl;
 char * fragment_glsl;
 
 void route(http_request_t * request){
-    if (string_starts_with(request->request_line_string, string_new("GET / "))){
+    if (string_starts_with(request->request_line_string.chars, "GET / ")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", homepage_html);
         return; 
     }
 
-    if (string_starts_with(request->request_line_string, string_new("GET /game.html "))){
+    if (string_starts_with(request->request_line_string.chars, "GET /game.html ")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", game_html);
         return; 
     }
     
-    if (string_starts_with(request->request_line_string, string_new("GET /frontend.js "))){
+    if (string_starts_with(request->request_line_string.chars, "GET /frontend.js ")){
         printf("HTTP/1.1 200 OK\r\nContent-Type:text/javascript\r\n\r\n%s", frontend_js);
         return; 
     }
 
-    if (string_starts_with(request->request_line_string, string_new("GET /vertex.glsl "))){
+    if (string_starts_with(request->request_line_string.chars, "GET /vertex.glsl ")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", vertex_glsl);
         return; 
     }
 
-    if (string_starts_with(request->request_line_string, string_new("GET /fragment.glsl "))){
+    if (string_starts_with(request->request_line_string.chars, "GET /fragment.glsl ")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", fragment_glsl);
         return; 
     }
 
 
-    if (string_starts_with(request->request_line_string, string_new("POST /event "))){
+    if (string_starts_with(request->request_line_string.chars, "POST /event ")){
         bool error = false;
         json_t json = json_load(request->payload, request->payload_length);
-        error |= json.type == JSON_TYPE_ERROR;
-        json_t event_name = json_dictionary_find_key(json, string_new("name"));
-        error |= event_name.type == JSON_TYPE_ERROR;
-        json_t type = json_dictionary_find_key(json, string_new("type"));
-        error |= type.type == JSON_TYPE_ERROR;
-        json_t key = json_dictionary_find_key(json, string_new("key"));
-        error |= key.type == JSON_TYPE_ERROR;
+        error |= json.is_error;
+        json_t event_name = json_dictionary_find_key(json, "name");
+        error |= json.is_error;
+        json_t type = json_dictionary_find_key(json, "type");
+        error |= json.is_error;
+        json_t key = json_dictionary_find_key(json, "key");
+        error |= json.is_error;
 
         if (error){
             printf("HTTP/1.1 422 Unprocessable Entity\r\n\r\n");
@@ -107,6 +107,7 @@ void http_serve_forever(const char * port){
             } else if (process_id == 0){
                 char * buffer = calloc(BUFFER_SIZE + 1, 1);
                 int received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
+                buffer[received_bytes] = '\0';
 
                 if (received_bytes < 0){
                     fprintf(stderr, "Error receiving data from socket.\n");
@@ -205,11 +206,11 @@ void http_build_request(http_request_t * request, char * buffer, uint32_t length
         .size = length
     };
     
-    string_split(payload, string_new("\r\n"), &request->request_line_string, &payload);
-    string_split(request->request_line_string, string_new(" "), &request->method, &request->uri);
-    string_split(request->uri, string_new(" "), &request->uri, &request->protocol);
-    string_split(request->uri, string_new("?"), &request->uri, &request->query_parameters);
-    string_split(payload, string_new("\r\n\r\n"), &request->headers, &payload);
+    string_split(payload, "\r\n", &request->request_line_string, &payload);
+    string_split(request->request_line_string, " ", &request->method, &request->uri);
+    string_split(request->uri, " ", &request->uri, &request->protocol);
+    string_split(request->uri, "?", &request->uri, &request->query_parameters);
+    string_split(payload, "\r\n\r\n", &request->headers, &payload);
     request->headers.chars -= 2;
     request->headers.size += 2;
     request->payload = strstr(buffer, "\r\n\r\n") + 4;
@@ -229,7 +230,7 @@ string_t http_header_value(const http_request_t * request, const string_t header
     sprintf(key, "\r\n%.*s: ", header_name.size, header_name.chars);
     string_t _;
     string_t header_value;
-    string_split(request->headers, string_new(key), &_, &header_value);
-    string_split(header_value, string_new("\r\n"), &header_value, &_);
+    string_split(request->headers, key, &_, &header_value);
+    string_split(header_value, "\r\n", &header_value, &_);
     return header_value;
 }
