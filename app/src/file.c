@@ -177,7 +177,7 @@ json_t json_dictionary_find_key(json_t json, const char * key){
 }
 
 bool json_get_boolean(const json_t json){
-    return memcmp(json.data, "true", 4) == 0;
+    return string_equals(json.data, "true");
 }
 
 int64_t json_get_integer(const json_t json){
