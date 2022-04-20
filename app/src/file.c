@@ -40,19 +40,19 @@ static int json_key_comparator(const void * a, const void * b){
     return strcmp(ka->key, kb->key);
 }
 
-static const char * json_load_dictionary_keys(json_t * json, const char * data, const char * end){
+static const char * json_load_dictionary_keys(json_t * json, const char * data){
     const char * c = data + 1;
     const char * key;
-    while (c != NULL && c < end){
-        for (; c[0] != '\0' && !string_contains_character("\"{}", c[0]); c++){}
+    while (c[0] != '\0'){
+        c += strcspn(c, "\"{}");
         if (*c == '{'){
-            c = json_load_dictionary_keys(json, c, end);
+            c = json_load_dictionary_keys(json, c);
         } else if (*c == '}'){
             return c + 1;
         } else if (*c == '"'){
             key = c + 1;
             c += strlen(c) + 1;
-            if (c < end && c[0] == ':'){
+            if (c[0] == ':'){
                 json->keys[json->key_count] = (json_key_t){
                     .key = key,
                     .scope = data,
@@ -61,7 +61,7 @@ static const char * json_load_dictionary_keys(json_t * json, const char * data, 
             }
         }
     }
-    return NULL;
+    return c;
 }
 
 char * file_read(const char * filename){
@@ -120,11 +120,11 @@ json_t json_load(const char * input_string){
         }
     }
 
-    uint32_t length = strlen(input_string);
-    char * data = malloc(length + 1 + number_of_keys * sizeof(json_key_t));
+    uint32_t length = strlen(input_string) + 1;
+    char * data = malloc(length + number_of_keys * sizeof(json_key_t));
     json_t json = {
         .data = data,
-        .keys = (json_key_t *) (data + length + 1),
+        .keys = (json_key_t *) (data + length),
         .key_count = 0,
     };
 
@@ -146,7 +146,12 @@ json_t json_load(const char * input_string){
     }
     *output_string = '\0';
 
-    json_load_dictionary_keys(&json, json.data, json.data + length);
+    if (is_in_string){
+        free(data);
+        return (json_t){ .data = NULL };
+    }
+
+    json_load_dictionary_keys(&json, json.data);
     qsort(json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
 
     return json;
