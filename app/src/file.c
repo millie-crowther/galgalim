@@ -155,6 +155,13 @@ json_t json_load(const char * input_string){
     json_load_dictionary_keys(&json, json.data);
     qsort(json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
 
+    for (json_key_t * key = json.keys; key < json.keys + json.key_count - 1; i++){
+        if (json_key_comparator(key, key + 1) == 0){
+            free(data);
+            return (json_t){ .data = NULL };
+        }
+    }
+
     return json;
 }
 
