@@ -28,7 +28,7 @@ typedef struct json_t {
 
 char * file_read(const char * filename);
 
-json_t json_load(char * data);
+json_t json_load(const char * data);
 json_t json_dictionary_find_key(json_t json, const char * key);
 bool json_get_boolean(const json_t json);
 int64_t json_get_integer(const json_t json);

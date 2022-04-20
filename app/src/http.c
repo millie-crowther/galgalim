@@ -27,33 +27,33 @@ char * vertex_glsl;
 char * fragment_glsl;
 
 void route(http_request_t * request){
-    if (string_starts_with(request->request_line_string.chars, "GET / ")){
+    if (string_equals(request->method, "GET") && string_equals(request->uri, "/")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", homepage_html);
         return; 
     }
 
-    if (string_starts_with(request->request_line_string.chars, "GET /game.html ")){
+    if (string_equals(request->method, "GET") && string_equals(request->uri, "/game.html")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", game_html);
         return; 
     }
     
-    if (string_starts_with(request->request_line_string.chars, "GET /frontend.js ")){
+    if (string_equals(request->method, "GET") && string_equals(request->uri, "/frontend.js")){
         printf("HTTP/1.1 200 OK\r\nContent-Type:text/javascript\r\n\r\n%s", frontend_js);
         return; 
     }
 
-    if (string_starts_with(request->request_line_string.chars, "GET /vertex.glsl ")){
+    if (string_equals(request->method, "GET") && string_equals(request->uri, "/vertex.glsl")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", vertex_glsl);
         return; 
     }
 
-    if (string_starts_with(request->request_line_string.chars, "GET /fragment.glsl ")){
+    if (string_equals(request->method, "GET") && string_equals(request->uri, "/fragment.glsl")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", fragment_glsl);
         return; 
     }
 
 
-    if (string_starts_with(request->request_line_string.chars, "POST /event ")){
+    if (string_equals(request->method, "POST") && string_equals(request->uri, "/event")){
         bool error = false;
         json_t json = json_load(request->payload);
         error |= json_get_type(json) != JSON_TYPE_DICTIONARY;
@@ -119,7 +119,7 @@ void http_serve_forever(const char * port){
 
                 } else {
                     http_request_t request;
-                    http_build_request(&request, buffer, received_bytes);
+                    http_build_request(&request, buffer);
 
                     dup2(clientfd, STDOUT_FILENO);
                     close(clientfd);
@@ -200,39 +200,15 @@ int http_start_listening(const char *port){
     return listenfd;
 }
 
-void http_build_request(http_request_t * request, char * buffer, uint32_t length){
+void http_build_request(http_request_t * request, char * buffer){
     // see RFC 2616, Section 5.1
     // https://www.rfc-editor.org/rfc/rfc2616#section-5.1
-    string_t payload = (string_t) {
-        .chars = buffer,
-        .size = length
-    };
-    
-    string_split(payload, "\r\n", &request->request_line_string, &payload);
-    string_split(request->request_line_string, " ", &request->method, &request->uri);
-    string_split(request->uri, " ", &request->uri, &request->protocol);
-    string_split(request->uri, "?", &request->uri, &request->query_parameters);
-    string_split(payload, "\r\n\r\n", &request->headers, &payload);
-    request->headers.chars -= 2;
-    request->headers.size += 2;
-    request->payload = strstr(buffer, "\r\n\r\n") + 4;
-    request->payload_length = length - (request->payload - buffer);
+    request->payload = string_split(buffer, "\r\n\r\n");
+    request->headers = string_split(buffer, "\r\n");
+    request->method = buffer;
+    request->uri = string_split(buffer, " ");
+    request->protocol = string_split(request->uri, " ");
+    request->query_parameters = string_split(request->uri, "?");
 
-    fprintf(stderr, "\x1b[32m + [%.*s] %.*s\x1b[0m\n", request->method.size, request->method.chars, request->uri.size, request->uri.chars);
-
-    string_t content_length_string = http_header_value(request, string_new("Content-Length"));
-    long content_length = atol(content_length_string.chars);
-    if (content_length != 0 && content_length < length){
-        request->payload_length = content_length;
-    }
-}
-
-string_t http_header_value(const http_request_t * request, const string_t header_name){
-    char key[header_name.size + 5];
-    sprintf(key, "\r\n%.*s: ", header_name.size, header_name.chars);
-    string_t _;
-    string_t header_value;
-    string_split(request->headers, key, &_, &header_value);
-    string_split(header_value, "\r\n", &header_value, &_);
-    return header_value;
+    fprintf(stderr, "\x1b[32m + [%s] %s\x1b[0m\n", request->method, request->uri);
 }

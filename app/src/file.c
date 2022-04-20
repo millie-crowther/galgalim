@@ -107,9 +107,9 @@ json_type_t json_get_type(const json_t json){
     return JSON_TYPE_ERROR;
 }
 
-json_t json_load(char * input_string){
+json_t json_load(const char * input_string){
     int number_of_keys = 0;
-    for (char * c = input_string; *c != '\0'; c++){
+    for (const char * c = input_string; *c != '\0'; c++){
         if (*c == ':'){
             number_of_keys++;
         }
@@ -125,7 +125,7 @@ json_t json_load(char * input_string){
 
     bool is_in_string = false;
     char * output_string = data;
-    for (char * c = input_string; *c != '\0'; c++){
+    for (const char * c = input_string; *c != '\0'; c++){
         char escaped_character = json_escaped_character(c);
         if (c[0] == '"'){
             *output_string = is_in_string ? '\0' : '"';
