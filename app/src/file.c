@@ -84,24 +84,29 @@ char * file_read(const char * filename){
 }
 
 json_type_t json_get_type(const json_t json){
-    if (json.data != NULL){
-        switch (*json.data){
-        case '{':
-            return JSON_TYPE_DICTIONARY;
-        case '[':
-            return JSON_TYPE_LIST;
-        case '"':
-            return JSON_TYPE_STRING;
-        case 't':
-        case 'f':
-            return JSON_TYPE_BOOLEAN;
-        case 'n':
-            return JSON_TYPE_NULL; 
-        }
+    if (json.data == NULL){
+        return JSON_TYPE_ERROR;
+    }
 
-        if (isdigit(*json.data) || *json.data == '-'){    
-            return JSON_TYPE_NUMBER;
-        }
+    if (isdigit(json.data[0]) || json.data[0] == '-'){    
+        return JSON_TYPE_NUMBER;
+    }
+
+    if (memcmp(json.data, "true", 4) == 0 || memcmp(json.data, "false", 5) == 0){
+        return JSON_TYPE_BOOLEAN;
+    }
+
+    if (memcmp(json.data, "null", 4) == 0){
+        return JSON_TYPE_NULL;
+    }
+
+    switch (json.data[0]){
+    case '{':
+        return JSON_TYPE_DICTIONARY;
+    case '[':
+        return JSON_TYPE_LIST;
+    case '"':
+        return JSON_TYPE_STRING;
     }
 
     return JSON_TYPE_ERROR;
