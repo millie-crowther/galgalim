@@ -15,6 +15,11 @@ typedef enum json_type_t {
     JSON_TYPE_ERROR
 } json_type_t;
 
+typedef struct json_key_t {
+    const char * key;
+    const char * scope;
+} json_key_t;
+
 typedef struct json_t {
     const char * data;
     json_key_t * keys;
