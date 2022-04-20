@@ -88,15 +88,15 @@ json_type_t json_get_type(const json_t json){
         return JSON_TYPE_ERROR;
     }
 
-    if (isdigit(json.data[0]) || json.data[0] == '-'){    
+    if (strtod(json.data, NULL) != 0.0 || json.data[0] == '0'){    
         return JSON_TYPE_NUMBER;
     }
 
-    if (memcmp(json.data, "true", 4) == 0 || memcmp(json.data, "false", 5) == 0){
+    if (string_equals(json.data, "true") || string_equals(json.data, "false")){
         return JSON_TYPE_BOOLEAN;
     }
 
-    if (memcmp(json.data, "null", 4) == 0){
+    if (string_equals(json.data, "null")){
         return JSON_TYPE_NULL;
     }
 
@@ -107,9 +107,9 @@ json_type_t json_get_type(const json_t json){
         return JSON_TYPE_LIST;
     case '"':
         return JSON_TYPE_STRING;
+    default:
+        return JSON_TYPE_ERROR;
     }
-
-    return JSON_TYPE_ERROR;
 }
 
 json_t json_load(const char * input_string){
