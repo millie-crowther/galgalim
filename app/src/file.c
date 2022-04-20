@@ -153,10 +153,6 @@ json_t json_load(const char * input_string){
 }
 
 json_t json_dictionary_find_key(json_t json, const char * key){
-    if (json_get_type(json) != JSON_TYPE_DICTIONARY){
-        return (json_t){ .data = NULL };
-    }
-
     json_key_t json_key = {
         .key = key,
         .scope = json.data
