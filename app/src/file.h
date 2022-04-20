@@ -21,8 +21,7 @@ typedef struct json_key_t {
 } json_key_t;
 
 typedef struct json_t {
-    const char * scope;
-    char * data;
+    const char * data;
     json_key_t * keys;
     uint32_t key_count;
 } json_t;

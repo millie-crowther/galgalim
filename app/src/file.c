@@ -5,15 +5,29 @@
 #include <stdio.h>
 #include <string.h>
 
-static const char escaped_characters[] = {
-    ['"'] = '"',
-    ['\\'] = '\\',
-    ['b'] = '\b',
-    ['f'] = '\f',
-    ['n'] = '\n',
-    ['r'] = '\r',
-    ['t'] = '\t',
-};
+static char json_escaped_character(const char * string){
+    if (string[0] != '\\'){
+        return 0;
+    }
+
+    switch (string[1]){
+    case '\\':
+    case '"':
+        return string[1];
+    case 'b':
+        return '\b';
+    case 'n':
+        return '\n';
+    case 'f':
+        return '\f';
+    case 'r':
+        return '\r';
+    case 't':
+        return '\t';
+    }
+    
+    return 0;
+}
 
 static int json_key_comparator(const void * a, const void * b){
     const json_key_t * ka = (const json_key_t *) a;
@@ -26,26 +40,22 @@ static int json_key_comparator(const void * a, const void * b){
     return strcmp(ka->key, kb->key);
 }
 
-static char * load_dictionary_keys(json_t * json, char * scope, char * end){
-    char * c = scope + 1;
-    char * key;
+static const char * json_load_dictionary_keys(json_t * json, const char * data, const char * end){
+    const char * c = data + 1;
+    const char * key;
     while (c != NULL && c < end){
-        for (; c < end && !string_contains_character("\"{}", *c); c++){}
-        if (c >= end){
-            break;
-        }
-        
+        for (; c[0] != '\0' && !string_contains_character("\"{}", *c); c++){}
         if (*c == '{'){
-            c = load_dictionary_keys(json, c, end);
+            c = json_load_dictionary_keys(json, c, end);
         } else if (*c == '}'){
             return c + 1;
         } else if (*c == '"'){
             key = c + 1;
             c += strlen(c) + 1;
-            if (c < end && *c == ':'){
+            if (c < end && c[0] == ':'){
                 json->keys[json->key_count] = (json_key_t){
                     .key = key,
-                    .scope = scope,
+                    .scope = data,
                 };
                 json->key_count++;
             }
@@ -99,7 +109,7 @@ json_type_t json_get_type(const json_t json){
 
 json_t json_load(char * input_string){
     int number_of_keys = 0;
-    for (char * c = input_string; c != '\0'; c++){
+    for (char * c = input_string; *c != '\0'; c++){
         if (*c == ':'){
             number_of_keys++;
         }
@@ -109,21 +119,20 @@ json_t json_load(char * input_string){
     char * data = malloc(length + 1 + number_of_keys * sizeof(json_key_t));
     json_t json = {
         .data = data,
-        .keys = data + length + 1,
-        .scope = data,
+        .keys = (json_key_t *) data + length + 1,
         .key_count = 0,
     };
 
-    int number_of_keys = 0;
     bool is_in_string = false;
-    char * output_string = json.data;
+    char * output_string = data;
     for (char * c = input_string; *c != '\0'; c++){
+        char escaped_character = json_escaped_character(c);
         if (c[0] == '"'){
             *output_string = is_in_string ? '\0' : '"';
             is_in_string = !is_in_string;
             output_string++;
-        } else if (is_in_string && c[0] == '\\' && string_contains_character("\"\\bnfrt", c[1])){
-            *output_string = escaped_characters[c[1]];
+        } else if (is_in_string && escaped_character != 0){
+            *output_string = escaped_character;
             output_string += 2;
         } else if (is_in_string || !isspace(c[0])){
             *output_string = c[0];
@@ -132,20 +141,20 @@ json_t json_load(char * input_string){
     }
     *output_string = '\0';
 
-    load_dictionary_keys(&json, json.data, json.data + length);
+    json_load_dictionary_keys(&json, json.data, json.data + length);
     qsort(json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
 
     return json;
 }
 
 json_t json_dictionary_find_key(json_t json, const char * key){
-    if (json.scope == NULL || json_get_type(json) != JSON_TYPE_DICTIONARY){
+    if (json_get_type(json) != JSON_TYPE_DICTIONARY){
         return (json_t){ .data = NULL };
     }
 
     json_key_t json_key = {
         .key = key,
-        .scope = json.scope
+        .scope = json.data
     };
 
     json_key_t * data_key = (json_key_t *) bsearch(&json_key, json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
@@ -153,10 +162,9 @@ json_t json_dictionary_find_key(json_t json, const char * key){
         return (json_t){ .data = NULL };
     }
 
-    char * data = data_key->key + strlen(key) + 2;
+    const char * data = data_key->key + strlen(key) + 2;
     return (json_t){
         .data = data,
-        .scope = *data == '{' ? data : NULL,
         .keys = json.keys,
         .key_count = json.key_count,
     };

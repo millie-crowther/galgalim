@@ -55,14 +55,16 @@ void route(http_request_t * request){
 
     if (string_starts_with(request->request_line_string.chars, "POST /event ")){
         bool error = false;
-        json_t json = json_load(request->payload, request->payload_length);
-        error |= json.is_error;
+        json_t json = json_load(request->payload);
+        error |= json_get_type(json) != JSON_TYPE_DICTIONARY;
         json_t event_name = json_dictionary_find_key(json, "name");
-        error |= json.is_error;
+        error |= json_get_type(json) != JSON_TYPE_STRING;
         json_t type = json_dictionary_find_key(json, "type");
-        error |= json.is_error;
+        error |= json_get_type(json) != JSON_TYPE_STRING;
         json_t key = json_dictionary_find_key(json, "key");
-        error |= json.is_error;
+        error |= json_get_type(json) != JSON_TYPE_STRING;
+
+        printf("name = %s\ntype = %s\nkey = %s\n", json_get_string(event_name), json_get_string(type), json_get_string(key));
 
         if (error){
             printf("HTTP/1.1 422 Unprocessable Entity\r\n\r\n");
