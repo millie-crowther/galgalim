@@ -44,7 +44,7 @@ static const char * json_load_dictionary_keys(json_t * json, const char * data, 
     const char * c = data + 1;
     const char * key;
     while (c != NULL && c < end){
-        for (; c[0] != '\0' && !string_contains_character("\"{}", *c); c++){}
+        for (; c[0] != '\0' && !string_contains_character("\"{}", c[0]); c++){}
         if (*c == '{'){
             c = json_load_dictionary_keys(json, c, end);
         } else if (*c == '}'){
@@ -114,12 +114,12 @@ json_t json_load(const char * input_string){
             number_of_keys++;
         }
     }
-    
+
     uint32_t length = strlen(input_string);
     char * data = malloc(length + 1 + number_of_keys * sizeof(json_key_t));
     json_t json = {
         .data = data,
-        .keys = (json_key_t *) data + length + 1,
+        .keys = (json_key_t *) (data + length + 1),
         .key_count = 0,
     };
 

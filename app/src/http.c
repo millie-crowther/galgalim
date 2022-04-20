@@ -54,23 +54,6 @@ void route(http_request_t * request){
 
 
     if (string_equals(request->method, "POST") && string_equals(request->uri, "/event")){
-        bool error = false;
-        json_t json = json_load(request->payload);
-        error |= json_get_type(json) != JSON_TYPE_DICTIONARY;
-        json_t event_name = json_dictionary_find_key(json, "name");
-        error |= json_get_type(json) != JSON_TYPE_STRING;
-        json_t type = json_dictionary_find_key(json, "type");
-        error |= json_get_type(json) != JSON_TYPE_STRING;
-        json_t key = json_dictionary_find_key(json, "key");
-        error |= json_get_type(json) != JSON_TYPE_STRING;
-
-        printf("name = %s\ntype = %s\nkey = %s\n", json_get_string(event_name), json_get_string(type), json_get_string(key));
-
-        if (error){
-            printf("HTTP/1.1 422 Unprocessable Entity\r\n\r\n");
-            return;
-        }
-
         printf("HTTP/1.1 202 Accepted\r\n\r\n");
         return;
     }
