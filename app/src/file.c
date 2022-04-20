@@ -164,10 +164,8 @@ json_t json_dictionary_find_key(json_t json, const char * key){
     };
 
     json_key_t * data_key = (json_key_t *) bsearch(&json_key, json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
-    const char * data = data_key == NULL ? NULL : data_key->key + strlen(key) + 2;
-
     return (json_t){
-        .data = data,
+        .data = data_key == NULL ? NULL : data_key->key + strlen(key) + 2,
         .keys = json.keys,
         .key_count = json.key_count,
     };
