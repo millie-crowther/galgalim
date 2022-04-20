@@ -15,11 +15,6 @@ typedef enum json_type_t {
     JSON_TYPE_ERROR
 } json_type_t;
 
-typedef struct json_key_t {
-    const char * key;
-    const char * scope;
-} json_key_t;
-
 typedef struct json_t {
     const char * data;
     json_key_t * keys;
@@ -35,5 +30,6 @@ int64_t json_get_integer(const json_t json);
 double json_get_float(const json_t json);
 const char * json_get_string(const json_t json);
 json_type_t json_get_type(const json_t json);
+void json_free(json_t * json);
 
 #endif

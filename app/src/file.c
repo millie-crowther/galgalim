@@ -5,6 +5,11 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct json_key_t {
+    const char * key;
+    const char * scope;
+} json_key_t;
+
 static char json_escaped_character(const char * string){
     if (string[0] != '\\'){
         return 0;
@@ -190,4 +195,9 @@ double json_get_float(const json_t json){
 
 const char * json_get_string(const json_t json){
     return json_get_type(json) == JSON_TYPE_STRING ? json.data + 1 : NULL;
+}
+
+void json_free(json_t * json){
+    free(json->data);
+    *json = (json_t){};
 }
