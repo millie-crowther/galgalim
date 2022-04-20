@@ -118,10 +118,6 @@ json_t json_load(char * input_string){
     bool is_in_string = false;
     char * output_string = json.data;
     for (char * c = input_string; *c != '\0'; c++){
-        if (c[0] == ':'){
-            number_of_keys++;
-        }
-
         if (c[0] == '"'){
             *output_string = is_in_string ? '\0' : '"';
             is_in_string = !is_in_string;
