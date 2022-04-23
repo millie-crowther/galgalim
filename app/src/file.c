@@ -42,19 +42,19 @@ static int json_key_comparator(const void * a, const void * b){
 }
 
 static const char * json_load_dictionary_keys(json_t * json, const char * data){
-    const char * c = data + 1;
+    const char * character = data + 1;
     const char * key;
-    while (c[0] != '\0'){
-        c += strcspn(c, "\"{}");
-        if (*c == '{'){
-            c = json_load_dictionary_keys(json, c);
-        } else if (*c == '}'){
-            return c + 1;
-        } else if (*c == '"'){
-            key = c + 1;
-            c += strlen(c) + 1;
-            if (c[0] == ':'){
-                json->keys[json->key_count] = (json_key_t){
+    while (*character != '\0'){
+        character += strcspn(character, "\"{}");
+        if (*character == '{'){
+            character = json_load_dictionary_keys(json, character);
+        } else if (*character == '}'){
+            return character + 1;
+        } else if (*character == '"'){
+            key = character + 1;
+            character += strlen(character) + 1;
+            if (*character == ':'){
+                json->keys[json->key_count] = (json_key_t) {
                     .key = key,
                     .scope = data,
                 };
@@ -62,7 +62,7 @@ static const char * json_load_dictionary_keys(json_t * json, const char * data){
             }
         }
     }
-    return c;
+    return character;
 }
 
 char * file_read(const char * filename){
@@ -89,15 +89,15 @@ json_type_t json_get_type(const json_t json){
         return JSON_TYPE_ERROR;
     }
 
-    if (strtod(json.data, NULL) != 0.0 || json.data[0] == '0'){    
+    if (string_contains_character("-0123456789", *json.data)){    
         return JSON_TYPE_NUMBER;
     }
 
-    if (string_equals(json.data, "true") || string_equals(json.data, "false")){
+    if (memcmp(json.data, "true", 4) == 0 || memcmp(json.data, "false", 5) == 0){
         return JSON_TYPE_BOOLEAN;
     }
 
-    if (string_equals(json.data, "null")){
+    if (memcmp(json.data, "null", 4) == 0){
         return JSON_TYPE_NULL;
     }
 
@@ -115,8 +115,8 @@ json_type_t json_get_type(const json_t json){
 
 json_t json_load(const char * input_string){
     int number_of_keys = 0;
-    for (const char * c = input_string; *c != '\0'; c++){
-        if (*c == ':'){
+    for (const char * character = input_string; *character != '\0'; character++){
+        if (*character == ':'){
             number_of_keys++;
         }
     }
@@ -131,17 +131,17 @@ json_t json_load(const char * input_string){
 
     bool is_in_string = false;
     char * output_string = data;
-    for (const char * c = input_string; *c != '\0'; c++){
-        char escaped_character = json_escaped_character(c);
-        if (c[0] == '"'){
+    for (const char * character = input_string; *character != '\0'; character++){
+        char escaped_character = json_escaped_character(character);
+        if (*character == '"'){
             *output_string = is_in_string ? '\0' : '"';
             is_in_string = !is_in_string;
             output_string++;
         } else if (is_in_string && escaped_character != 0){
             *output_string = escaped_character;
             output_string += 2;
-        } else if (is_in_string || !isspace(c[0])){
-            *output_string = c[0];
+        } else if (is_in_string || !isspace(*character)){
+            *output_string = *character;
             output_string++;
         }
     }
@@ -149,16 +149,16 @@ json_t json_load(const char * input_string){
 
     if (is_in_string){
         free(data);
-        return (json_t){ .data = NULL };
+        return (json_t) { .data = NULL };
     }
 
     json_load_dictionary_keys(&json, json.data);
     qsort(json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
 
-    for (json_key_t * key = json.keys; key < json.keys + json.key_count - 1; i++){
+    for (json_key_t * key = json.keys; key < json.keys + json.key_count - 1; key++){
         if (json_key_comparator(key, key + 1) == 0){
             free(data);
-            return (json_t){ .data = NULL };
+            return (json_t) { .data = NULL };
         }
     }
 
@@ -171,8 +171,8 @@ json_t json_dictionary_find_key(json_t json, const char * key){
         .scope = json.data
     };
 
-    json_key_t * data_key = (json_key_t *) bsearch(&json_key, json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
-    return (json_t){
+    json_key_t * data_key = bsearch(&json_key, json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
+    return (json_t) {
         .data = data_key == NULL ? NULL : data_key->key + strlen(key) + 2,
         .keys = json.keys,
         .key_count = json.key_count,
@@ -180,7 +180,7 @@ json_t json_dictionary_find_key(json_t json, const char * key){
 }
 
 bool json_get_boolean(const json_t json){
-    return string_equals(json.data, "true");
+    return memcmp(json.data, "true", 4) == 0;
 }
 
 int64_t json_get_integer(const json_t json){

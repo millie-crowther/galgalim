@@ -1,19 +1,19 @@
 FROM alpine:3.15.3
 
 # install dependencies
-RUN apk add --no-cache make cmake gcc musl-dev
+RUN apk add --no-cache make cmake gcc musl-dev git
 
 # copy in source code
 COPY src /src
 
 # build app
 WORKDIR "/src"
-RUN cmake .
+RUN git clone https://github.com/redis/hiredis.git
+WORKDIR "/"
+RUN cmake src
 RUN make
 
 # delete source code to save on image size
-RUN cp galgalim /galgalim
-WORKDIR "/"
 RUN rm -rf /src
 
 # copy in static files 
