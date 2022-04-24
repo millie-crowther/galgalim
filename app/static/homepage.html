@@ -3,9 +3,8 @@
     <script>
         async function main(){
             let response = await fetch('/instance', { method: "POST"});
-            console.log(response);
-            let json = await response.json();
-            console.log(json);
+            let newInstance = await response.json();
+            window.location.replace(`/instance/${newInstance.id}`)
         }
         main();
     </script>
