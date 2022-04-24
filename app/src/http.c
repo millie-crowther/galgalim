@@ -32,14 +32,15 @@ bool route_instance(http_request_t * request, redisContext * redis_context){
         char uuid_string[UUID_STRING_LENGTH];
         uuid_t uuid;
         random_t random = random_new();
-        redisReply *reply;
         random_uuid(&random, &uuid);
         uuid_to_string(&uuid, uuid_string);
-        reply = redisCommand(redis_context, "SET instance/%s/name %s", uuid_string, "new instance");
-        printf("HTTP/1.1 200 OK\r\n\r\n%s\r\n", uuid_string);
+        redisReply * reply = redisCommand(redis_context, "SET instance/%s/name %s", uuid_string, "new instance");
+        printf("HTTP/1.1 200 OK\r\n\r\n{\"id\":\"%s\"}\r\n", uuid_string);
         random_destroy(&random);
+        freeReplyObject(reply);
         return true;
     }
+    return false;
 }
 
 void route(http_request_t * request, redisContext * redis_context){
