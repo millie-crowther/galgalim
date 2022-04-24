@@ -1,8 +1,8 @@
-#include "http.h"
-#include <hiredis.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "http.h"
 
 int main() {
     redisContext * redis_context;
@@ -23,7 +23,7 @@ int main() {
 
     redisCommand(redis_context, "FLUSHDB");
 
-    http_serve_forever("8080");
+    http_serve_forever("8080", redis_context);
     redisFree(redis_context);
     return 0;
 }

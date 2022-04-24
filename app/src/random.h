@@ -9,7 +9,7 @@ typedef struct random_t {
 } random_t;
 
 #define UUID_SIZE 16
-#define UUID_STRING_LENGTH (UUID_SIZE * 2)
+#define UUID_STRING_LENGTH (UUID_SIZE * 2 + 1)
 typedef struct uuid_t {
     uint8_t data[UUID_SIZE];
 } uuid_t;

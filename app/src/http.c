@@ -16,6 +16,7 @@
 
 #include "array.h"
 #include "file.h"
+#include "random.h"
 #include "string.h"
 
 #define BUFFER_SIZE 65536
@@ -26,14 +27,22 @@ char * frontend_js;
 char * vertex_glsl;
 char * fragment_glsl;
 
-bool route_instance(http_request_t * request){
+bool route_instance(http_request_t * request, redisContext * redis_context){
     if (string_equals(request->method, "POST") && string_equals(request->uri, "/instance")){
-        
+        char uuid_string[UUID_STRING_LENGTH];
+        uuid_t uuid;
+        random_t random = random_new();
+        redisReply *reply;
+        random_uuid(&random, &uuid);
+        uuid_to_string(&uuid, uuid_string);
+        reply = redisCommand(redis_context, "SET instance/%s/name %s", uuid_string, "new instance");
+        printf("HTTP/1.1 200 OK\r\n\r\n%s\r\n", uuid_string);
+        random_destroy(&random);
         return true;
     }
 }
 
-void route(http_request_t * request){
+void route(http_request_t * request, redisContext * redis_context){
     if (string_equals(request->method, "GET") && string_equals(request->uri, "/")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", homepage_html);
         return; 
@@ -65,7 +74,7 @@ void route(http_request_t * request){
         return;
     }
 
-    if (route_instance(request)){
+    if (route_instance(request, redis_context)){
         return;
     }
 
@@ -77,7 +86,8 @@ void http_close_socket(const int file_descriptor){
     close(file_descriptor);
 }
 
-void http_serve_forever(const char * port){
+
+void http_serve_forever(const char * port, redisContext * redis_context){
     struct sockaddr_in client_address;
     socklen_t address_length;
     int clientfd;
@@ -118,7 +128,7 @@ void http_serve_forever(const char * port){
                     dup2(clientfd, STDOUT_FILENO);
                     close(clientfd);
 
-                    route(&request);
+                    route(&request, redis_context);
 
                     fflush(stdout);
                     shutdown(STDOUT_FILENO, SHUT_WR);

@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-
 const char * string_split(const char * string, const char * delimiter);
 bool string_equals(const char * a, const char * b);
 bool string_starts_with(const char * string, const char * prefix);

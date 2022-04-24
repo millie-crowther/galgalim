@@ -24,4 +24,5 @@ void uuid_to_string(uuid_t * uuid, char * string){
     for (int i = 0; i < UUID_SIZE; i++){
         sprintf(string + i * 2, "%02hhx", uuid->data[i]);
     }
+    string[UUID_SIZE * 2] = '\0';
 }
