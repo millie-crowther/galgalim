@@ -8,7 +8,7 @@ COPY src /src
 
 # build app
 WORKDIR "/src"
-RUN git clone https://github.com/redis/hiredis.git
+RUN if [ -d hiredis ]; then rm -rf hiredis; fi && git clone https://github.com/redis/hiredis.git
 WORKDIR "/"
 RUN cmake src
 RUN make

@@ -70,3 +70,6 @@ galgalim
 
 # node
 node_modules
+
+*.rdb
+hiredis

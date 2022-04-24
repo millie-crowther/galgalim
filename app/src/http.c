@@ -26,6 +26,13 @@ char * frontend_js;
 char * vertex_glsl;
 char * fragment_glsl;
 
+bool route_instance(http_request_t * request){
+    if (string_equals(request->method, "POST") && string_equals(request->uri, "/instance")){
+        
+        return true;
+    }
+}
+
 void route(http_request_t * request){
     if (string_equals(request->method, "GET") && string_equals(request->uri, "/")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", homepage_html);
@@ -57,7 +64,11 @@ void route(http_request_t * request){
         printf("HTTP/1.1 202 Accepted\r\n\r\n");
         return;
     }
-    
+
+    if (route_instance(request)){
+        return;
+    }
+
     printf("HTTP/1.1 404 Not Found\r\n\r\nThe requested page was not found.\r\n");
 }
 
