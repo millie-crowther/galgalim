@@ -338,6 +338,8 @@ function mouseMove(event) {
 }
 
 async function main() {
+    instanceID = document.URL.slice(document.URL.lastIndexOf('/') + 1)
+
     const canvas = document.getElementById("glCanvas");
     const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
 
