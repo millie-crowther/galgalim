@@ -109,11 +109,6 @@ void route(http_request_t * request, redisContext * redis_context){
         return; 
     }
 
-    if (string_equals(request->method, "GET") && string_equals(request->uri, "/model.gltf")){
-        printf("HTTP/1.1 200 OK\r\n\r\n%s", model_gltf);
-        return; 
-    }
-
     if (string_equals(request->method, "GET") && string_equals(request->uri, "/fragment.glsl")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", fragment_glsl);
         return; 
