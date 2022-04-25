@@ -338,8 +338,6 @@ function mouseMove(event) {
 }
 
 async function main() {
-    instanceID = document.URL.slice(document.URL.lastIndexOf('/') + 1)
-
     const canvas = document.getElementById("glCanvas");
     const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
 
@@ -348,6 +346,19 @@ async function main() {
         alert("Unable to initialize WebGL. Your browser or machine may not support it.");
         return;
     }
+
+    instanceID = document.URL.slice(document.URL.lastIndexOf('/') + 1)
+    fetch(`/player`, {
+        method: "POST",
+        body: JSON.stringify({instanceID: instanceID})
+    }).then(
+        response => response.json()
+    ).then(
+        newPlayer => {
+            console.log(newPlayer);
+            playerID = newPlayer.ID;
+        }
+    );
 
     let shaders = await Promise.all([
         Shader.create(gl, "/vertex.glsl", gl.VERTEX_SHADER),

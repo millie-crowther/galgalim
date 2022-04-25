@@ -24,6 +24,7 @@ typedef struct json_t {
     const char * data;
     json_key_t * keys;
     uint32_t key_count;
+    void * document;
 } json_t;
 
 char * file_read(const char * filename);

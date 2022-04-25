@@ -27,31 +27,67 @@ char * frontend_js;
 char * vertex_glsl;
 char * fragment_glsl;
 
+bool instance_exists(redisContext * redis_context, const char * instance_id){
+    redisReply * reply = redisCommand(redis_context, "SISMEMBER instances %s", instance_id);
+    bool is_found = reply->integer;
+    freeReplyObject(reply);
+    return is_found;
+}
+
 bool route_instance(http_request_t * request, redisContext * redis_context){
     if (string_equals(request->method, "POST") && string_equals(request->uri, "/instance")){
-        char uuid_string[UUID_STRING_LENGTH];
+        char instance_id[UUID_STRING_LENGTH];
         uuid_t uuid;
         random_t random = random_new();
         random_uuid(&random, &uuid);
-        uuid_to_string(&uuid, uuid_string);
-        redisReply * reply = redisCommand(redis_context, "SADD instances %s", uuid_string);
-        printf("HTTP/1.1 200 OK\r\n\r\n{\"id\":\"%s\"}\r\n", uuid_string);
         random_destroy(&random);
+        uuid_to_string(&uuid, instance_id);
+        redisReply * reply = redisCommand(redis_context, "SADD instances %s", instance_id);
         freeReplyObject(reply);
+        printf("HTTP/1.1 201 Created\r\n\r\n{\"ID\":\"%s\"}\r\n", instance_id);
         return true;
-    }
 
-    if (string_equals(request->method, "GET") && string_starts_with(request->uri, "/instance/")){
+    } else if (string_equals(request->method, "GET") && string_starts_with(request->uri, "/instance/")){
         const char * instance_id = request->uri + strlen("/instance/");
-        redisReply * reply = redisCommand(redis_context, "SISMEMBER instances %s", instance_id);
-        bool found = reply->integer;
-        freeReplyObject(reply);
-        if (found){
-            printf("HTTP/1.1 200 OK\r\n\r\n%s", game_html);
+        if (instance_exists(redis_context, instance_id)){
+            printf("HTTP/1.1 200 OK\r\n\r\n%s\r\n", game_html);
         } else {
             printf("HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
         }
         return true; 
+    }
+
+    return false;
+}
+
+bool route_player(http_request_t * request, redisContext * redis_context){
+    if (string_equals(request->method, "POST") && string_equals(request->uri, "/player")){
+        json_t json = json_load(request->payload);
+        bool is_error = json_get_type(json) != JSON_TYPE_DICTIONARY;
+        json_t instance_id_json = json_dictionary_find_key(json, "instanceID");
+        is_error |= json_get_type(instance_id_json) != JSON_TYPE_STRING;
+        if (is_error){
+            printf("HTTP/1.1 422 Unprocessable Entity\r\n\r\nIncorrectly formatted JSON");
+            return true;
+        } 
+
+        const char * instance_id = json_get_string(instance_id_json);
+        if (!instance_exists(redis_context, instance_id)){
+            printf("HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
+            return true; 
+        }
+
+        char player_id[UUID_STRING_LENGTH];
+        uuid_t uuid;
+        random_t random = random_new();
+        random_uuid(&random, &uuid);
+        random_destroy(&random);
+        uuid_to_string(&uuid, player_id);
+        redisReply * reply = redisCommand(redis_context, "SADD /instance/%s/players %s", instance_id, player_id);
+        freeReplyObject(reply);
+        printf("HTTP/1.1 201 Created\r\n\r\n{\"instanceID\":\"%s\",\"ID\":\"%s\"}\r\n", instance_id, player_id);
+        json_free(&json);
+        return true;
     }
 
     return false;
@@ -85,6 +121,10 @@ void route(http_request_t * request, redisContext * redis_context){
     }
 
     if (route_instance(request, redis_context)){
+        return;
+    }
+
+    if (route_player(request, redis_context)){
         return;
     }
 

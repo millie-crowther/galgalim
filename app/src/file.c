@@ -127,6 +127,7 @@ json_t json_load(const char * input_string){
         .data = data,
         .keys = (json_key_t *) (data + length),
         .key_count = 0,
+        .document = data,
     };
 
     bool is_in_string = false;
@@ -196,7 +197,7 @@ const char * json_get_string(const json_t json){
 }
 
 void json_free(json_t * json){
-    free(json->keys);
+    free(json->document);
     *json = (json_t) { 
         .data = NULL, 
         .key_count = 0, 
