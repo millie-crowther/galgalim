@@ -40,7 +40,7 @@ bool route_instance(http_request_t * request, redisContext * redis_context){
         uuid_t uuid;
         random_t random = random_new();
         random_uuid(&random, &uuid);
-        random_destroy(&random);
+        random_free(&random);
         uuid_to_string(&uuid, instance_id);
         redisReply * reply = redisCommand(redis_context, "SADD instances %s", instance_id);
         freeReplyObject(reply);
@@ -81,7 +81,7 @@ bool route_player(http_request_t * request, redisContext * redis_context){
         uuid_t uuid;
         random_t random = random_new();
         random_uuid(&random, &uuid);
-        random_destroy(&random);
+        random_free(&random);
         uuid_to_string(&uuid, player_id);
         redisReply * reply = redisCommand(redis_context, "SADD /instance/%s/players %s", instance_id, player_id);
         freeReplyObject(reply);
@@ -114,7 +114,6 @@ void route(http_request_t * request, redisContext * redis_context){
         return; 
     }
 
-
     if (string_equals(request->method, "POST") && string_equals(request->uri, "/event")){
         printf("HTTP/1.1 202 Accepted\r\n\r\n");
         return;
@@ -135,7 +134,6 @@ void http_close_socket(const int file_descriptor){
     shutdown(file_descriptor, SHUT_RDWR); 
     close(file_descriptor);
 }
-
 
 void http_serve_forever(const char * port, redisContext * redis_context){
     struct sockaddr_in client_address;

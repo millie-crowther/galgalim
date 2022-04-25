@@ -15,7 +15,7 @@ typedef struct uuid_t {
 } uuid_t;
 
 random_t random_new();
-void random_destroy(random_t * random);
+void random_free(random_t * random);
 void random_uuid(random_t * random, uuid_t * uuid);
 void uuid_to_string(uuid_t * uuid, char * string); 
 

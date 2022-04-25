@@ -13,8 +13,9 @@ WORKDIR "/"
 RUN cmake src
 RUN make
 
-# delete source code to save on image size
+# delete source code and uninstall packages to save on image size
 RUN rm -rf /src
+RUN apk del make cmake gcc git
 
 # copy in static files 
 COPY static /static

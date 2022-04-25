@@ -9,7 +9,7 @@ random_t random_new(){
     };
 }
 
-void random_destroy(random_t * random){
+void random_free(random_t * random){
     if (random->file != NULL){
         fclose(random->file);
         random->file = NULL;
