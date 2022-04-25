@@ -34,23 +34,32 @@ bool route_instance(http_request_t * request, redisContext * redis_context){
         random_t random = random_new();
         random_uuid(&random, &uuid);
         uuid_to_string(&uuid, uuid_string);
-        redisReply * reply = redisCommand(redis_context, "SET instance/%s/name %s", uuid_string, "new instance");
+        redisReply * reply = redisCommand(redis_context, "SADD instances %s", uuid_string);
         printf("HTTP/1.1 200 OK\r\n\r\n{\"id\":\"%s\"}\r\n", uuid_string);
         random_destroy(&random);
         freeReplyObject(reply);
         return true;
     }
+
+    if (string_equals(request->method, "GET") && string_starts_with(request->uri, "/instance/")){
+        const char * instance_id = request->uri + strlen("/instance/");
+        redisReply * reply = redisCommand(redis_context, "SISMEMBER instances %s", instance_id);
+        bool found = reply->integer;
+        freeReplyObject(reply);
+        if (found){
+            printf("HTTP/1.1 200 OK\r\n\r\n%s", game_html);
+        } else {
+            printf("HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
+        }
+        return true; 
+    }
+
     return false;
 }
 
 void route(http_request_t * request, redisContext * redis_context){
     if (string_equals(request->method, "GET") && string_equals(request->uri, "/")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", homepage_html);
-        return; 
-    }
-
-    if (string_equals(request->method, "GET") && string_equals(request->uri, "/game.html")){
-        printf("HTTP/1.1 200 OK\r\n\r\n%s", game_html);
         return; 
     }
     

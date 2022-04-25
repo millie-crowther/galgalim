@@ -1,14 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
     <script>
-        async function main(){
-            let response = await fetch('/instance', { method: "POST"});
-            let newInstance = await response.json();
-            window.location.replace(`/instance/${newInstance.id}`)
-        }
-        main();
+        fetch("/instance", { method: "POST" })
+            .then((response) => response.json())
+            .then((newInstance) => window.location.replace(`/instance/${newInstance.id}`));
     </script>
-
     <head>
         <meta charset="UTF-8" />
         <title>Galgalim Engine</title>

@@ -200,9 +200,7 @@ class Node {
             this.mesh.render(gl, program);
         }
 
-        this.children.forEach((child) => {
-            child.render(gl, program);
-        });
+        this.children.forEach((child) => child.render(gl, program));
     }
 
     linkChildren(nodes) {
@@ -250,9 +248,7 @@ class Model {
     }
 
     render(gl, program) {
-        this.nodes.forEach((node) => {
-            node.render(gl, program);
-        });
+        this.nodes.forEach((node) => node.render(gl, program));
     }
 
     static async create(gl, gltf) {
