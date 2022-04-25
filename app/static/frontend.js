@@ -3,7 +3,7 @@ let instanceID = null;
 let playerID = null;
 let model = null;
 
-let camera = { rY: 0.7000000000000003, position: [115.83230690847775, -40, -149.42278735255067] };
+let camera = {rY:1.5707963267948966,position:[0.9,-0.1,0]};
 
 function sendJSONRequest(method, uri, payload) {
     fetch(uri, {
@@ -17,7 +17,7 @@ function sendJSONRequest(method, uri, payload) {
 }
 
 function sendKeyEvent(event_type, key) {
-    let d = 2;
+    let d = 0.1;
     if (key == "a") {
         camera.position[0] += d * Math.cos(camera.rY);
         camera.position[2] += d * Math.sin(camera.rY);
