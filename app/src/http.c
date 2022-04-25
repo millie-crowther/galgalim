@@ -109,6 +109,11 @@ void route(http_request_t * request, redisContext * redis_context){
         return; 
     }
 
+    if (string_equals(request->method, "GET") && string_equals(request->uri, "/model.gltf")){
+        printf("HTTP/1.1 200 OK\r\n\r\n%s", model_gltf);
+        return; 
+    }
+
     if (string_equals(request->method, "GET") && string_equals(request->uri, "/fragment.glsl")){
         printf("HTTP/1.1 200 OK\r\n\r\n%s", fragment_glsl);
         return; 
@@ -116,6 +121,26 @@ void route(http_request_t * request, redisContext * redis_context){
 
     if (string_equals(request->method, "POST") && string_equals(request->uri, "/event")){
         printf("HTTP/1.1 202 Accepted\r\n\r\n");
+        return;
+    }
+
+    if (string_equals(request->method, "GET") && string_starts_with(request->uri, "/asset/")){
+        if (string_contains(request->uri, "..")){
+            printf("HTTP/1.1 400 Bad Request\r\n\r\n");
+            return;
+        }
+
+        size_t size;
+        char * asset = file_read(request->uri, &size);
+        if (asset == NULL){
+            printf("HTTP/1.1 404 Not Found\r\n\r\n");
+            return;
+        }
+
+        fprintf(stderr, "asset of length %ld loaded: %s\n", size, asset);
+        printf("HTTP/1.1 200 OK\r\n\r\n");
+        fwrite(asset, 1, size, stdout);
+        free(asset);
         return;
     }
 
@@ -196,8 +221,9 @@ int http_start_listening(const char *port){
     char ** pages[] = {&homepage_html, &game_html, &frontend_js, &vertex_glsl, &fragment_glsl};
     const char * filenames[] = {"/static/homepage.html", "/static/game.html", "/static/frontend.js", "/static/vertex.glsl", "/static/fragment.glsl"};
 
+    size_t _;
     for (uint32_t i = 0; i < sizeof(filenames) / sizeof(*filenames); i++){
-        *pages[i] = file_read(filenames[i]);
+        *pages[i] = file_read(filenames[i], &_);
         if (*pages[i] == NULL){
             fprintf(stderr, "Error loading static content\n");
             return -1;

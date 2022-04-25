@@ -19,6 +19,7 @@ RUN apk del make cmake gcc git
 
 # copy in static files 
 COPY static /static
+COPY asset /asset
 
 # run app
 CMD /galgalim

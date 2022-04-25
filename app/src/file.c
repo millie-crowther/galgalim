@@ -65,19 +65,19 @@ static const char * json_load_dictionary_keys(json_t * json, const char * data){
     return character;
 }
 
-char * file_read(const char * filename){
+char * file_read(const char * filename, size_t * size){
     FILE * file = fopen(filename, "r");
     if (file == NULL) {
         return NULL;
     }
 
     fseek(file, 0, SEEK_END);
-    size_t size = ftell(file);
+    *size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    char * string = malloc(size + 1);
-    fread(string, 1, size, file);
-    string[size] = '\0';
+    char * string = malloc(*size + 1);
+    fread(string, 1, *size, file);
+    string[*size] = '\0';
 
     fclose(file);
 
@@ -150,7 +150,7 @@ json_t json_load(const char * input_string){
 
     if (is_in_string){
         free(data);
-        return (json_t) { .data = NULL };
+        return (json_t) { 0 };
     }
 
     json_load_dictionary_keys(&json, json.data);
@@ -159,7 +159,7 @@ json_t json_load(const char * input_string){
     for (json_key_t * key = json.keys; key < json.keys + json.key_count - 1; key++){
         if (json_key_comparator(key, key + 1) == 0){
             free(data);
-            return (json_t) { .data = NULL };
+            return (json_t) { 0 };
         }
     }
 
@@ -169,7 +169,7 @@ json_t json_load(const char * input_string){
 json_t json_dictionary_find_key(json_t json, const char * key){
     json_key_t json_key = {
         .key = key,
-        .scope = json.data
+        .scope = json.data,
     };
 
     json_key_t * data_key = bsearch(&json_key, json.keys, json.key_count, sizeof(json_key_t), json_key_comparator);
@@ -198,9 +198,5 @@ const char * json_get_string(const json_t json){
 
 void json_free(json_t * json){
     free(json->document);
-    *json = (json_t) { 
-        .data = NULL, 
-        .key_count = 0, 
-        .keys = NULL,
-    };
+    *json = (json_t) { 0 };
 }

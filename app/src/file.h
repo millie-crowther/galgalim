@@ -2,6 +2,7 @@
 #define FILE_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #include "string.h"
 
@@ -27,7 +28,7 @@ typedef struct json_t {
     void * document;
 } json_t;
 
-char * file_read(const char * filename);
+char * file_read(const char * filename, size_t * size);
 
 json_t json_load(const char * data);
 json_t json_dictionary_find_key(json_t json, const char * key);
