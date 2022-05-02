@@ -6,8 +6,8 @@
 
 int main() {
     redisContext * redis_context;
-    const char * hostname = "host.docker.internal";
-    int redis_port = 6379;
+    const char * hostname = "redis-18775.c78.eu-west-1-2.ec2.cloud.redislabs.com";
+    int redis_port = 18775;
 
     struct timeval timeout = { 1, 500000 }; // 1.5 seconds
     redis_context = redisConnectWithTimeout(hostname, redis_port, timeout);
@@ -21,8 +21,13 @@ int main() {
         exit(1);
     }
 
-    redisCommand(redis_context, "FLUSHDB");
-
+    redisReply * reply = redisCommand(redis_context, "AUTH BzBtjF4pCdpnF9DodD1Go8LzJGzj9f2x");
+    if (!string_equals(reply->str, "OK")){
+        printf("Failed to authorise for redis connections\n");
+        redisFree(redis_context);
+        exit(1);
+    }
+    freeReplyObject(reply);
     http_serve_forever("8080", redis_context);
     redisFree(redis_context);
     return 0;

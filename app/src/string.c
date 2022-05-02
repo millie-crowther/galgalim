@@ -22,7 +22,7 @@ bool string_contains_character(const char * string, const char character){
 }
 
 bool string_equals(const char * a, const char * b){
-    return a == b || strcmp(a, b) == 0;
+    return strcmp(a, b) == 0;
 }
 
 bool string_contains(const char * haystack, const char * needle){

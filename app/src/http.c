@@ -43,6 +43,7 @@ bool route_instance(http_request_t * request, redisContext * redis_context){
         random_free(&random);
         uuid_to_string(&uuid, instance_id);
         redisReply * reply = redisCommand(redis_context, "SADD instances %s", instance_id);
+        
         freeReplyObject(reply);
         printf("HTTP/1.1 201 Created\r\n\r\n{\"ID\":\"%s\"}\r\n", instance_id);
         return true;
@@ -132,7 +133,6 @@ void route(http_request_t * request, redisContext * redis_context){
             return;
         }
 
-        fprintf(stderr, "asset of length %ld loaded: %s\n", size, asset);
         printf("HTTP/1.1 200 OK\r\n\r\n");
         fwrite(asset, 1, size, stdout);
         free(asset);
