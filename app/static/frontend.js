@@ -5,8 +5,8 @@ let model = null;
 const DRACO_EXTENSION_NAME = "KHR_draco_mesh_compression";
 
 let camera = {
-    rY: 1.5707963267948966,
-    position: [0.9, -0.1, 0],
+    rY: 0.6907963267948958,
+    position:[21.029967867417596,-0.1,-26.533788543144368]
 };
 
 function sendJSONRequest(method, uri, payload) {
