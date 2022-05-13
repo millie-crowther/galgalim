@@ -2,8 +2,12 @@ let cubeRotation = 0.0;
 let instanceID = null;
 let playerID = null;
 let model = null;
+const DRACO_EXTENSION_NAME = "KHR_draco_mesh_compression";
 
-let camera = {rY:1.5707963267948966,position:[0.9,-0.1,0]};
+let camera = {
+    rY: 1.5707963267948966,
+    position: [0.9, -0.1, 0],
+};
 
 function sendJSONRequest(method, uri, payload) {
     fetch(uri, {
@@ -64,7 +68,7 @@ class Buffer {
     static async create(buffer, modelURI) {
         let uri = buffer.uri;
         if (!buffer.uri.startsWith("data:application/octet-stream;base64,")) {
-            uri = modelURI.slice(0, modelURI.lastIndexOf('/') + 1) + buffer.uri;
+            uri = modelURI.slice(0, modelURI.lastIndexOf("/") + 1) + buffer.uri;
         }
         let response = await fetch(uri);
         let arrayBuffer = await response.arrayBuffer();
@@ -85,15 +89,15 @@ class Buffer {
 class BufferView {
     constructor(bufferView, buffers) {
         this.buffer = buffers[bufferView.buffer];
-        this.byteLength = bufferView.byteLength;
         this.byteOffset = bufferView.byteOffset || 0;
+        this.byteLength = bufferView.byteLength || this.buffer.arrayBuffer.byteLength - this.byteOffset;
         this.byteStride = bufferView.byteStride || 0;
     }
 }
 
 class Accessor {
     constructor(accessor, bufferViews) {
-        this.bufferView = bufferViews[accessor.bufferView];
+        this.bufferView = bufferViews[accessor.bufferView] || null;
         this.componentType = accessor.componentType;
         this.type = accessor.type;
         this.count = accessor.count;
@@ -126,14 +130,141 @@ class Accessor {
 }
 
 class Primitive {
-    constructor(gl, primitive, accessors, materials) {
-        this.indicesAccessor = accessors[primitive.indices] || null;
-        this.material = materials[primitive.material];
-        this.mode = primitive.mode || gl.TRIANGLES;
+    constructor(indicesAccessor, material, mode, attributeAccessors) {
+        this.indicesAccessor = indicesAccessor;
+        this.material = material;
+        this.mode = mode;
+        this.attributeAccessors = attributeAccessors;
+    }
 
-        this.attributeAccessors = {};
+    static async create(gl, primitive, accessors, materials, bufferViews) {
+        let indicesAccessor = accessors[primitive.indices] || null;
+        let material = materials[primitive.material];
+        let mode = primitive.mode || gl.TRIANGLES;
+
+        let attributeAccessors = {};
         for (let key in primitive.attributes) {
-            this.attributeAccessors[key] = accessors[primitive.attributes[key]];
+            attributeAccessors[key] = accessors[primitive.attributes[key]];
+        }
+
+        let dracoExtension = primitive?.extensions[DRACO_EXTENSION_NAME];
+        let decoderConfig = {
+            type: "js",
+        };
+        let decoderModule = await DracoDecoderModule(decoderConfig);
+        let decoder = new decoderModule.Decoder();
+        if (dracoExtension) {
+            const bufferView = bufferViews[dracoExtension.bufferView];
+            const decoderBuffer = new decoderModule.DecoderBuffer();
+            decoderBuffer.Init(
+                new Int8Array(
+                    bufferView.buffer.arrayBuffer,
+                    bufferView.byteOffset,
+                    bufferView.byteLength
+                ),
+                bufferView.byteLength
+            );
+            let dracoGeometry;
+            let decodingStatus;
+
+            const geometryType = decoder.GetEncodedGeometryType(decoderBuffer);
+
+            if (geometryType === decoderModule.TRIANGULAR_MESH) {
+                dracoGeometry = new decoderModule.Mesh();
+                decodingStatus = decoder.DecodeBufferToMesh(decoderBuffer, dracoGeometry);
+            } else {
+                throw new Error("Draco unexpected geometry type.");
+            }
+
+            if (!decodingStatus.ok() || dracoGeometry.ptr === 0) {
+                throw new Error("Draco decoding failed: " + decodingStatus.error_msg());
+            }
+
+            indicesAccessor.bufferView = this.decodeIndexBufferView(decoderModule, decoder, dracoGeometry, indicesAccessor);
+            for (let key in dracoExtension.attributes) {
+                let attributeName = key == "TEXCOORD_0" ? "TEX_COORD" : key;
+                let attributeID = decoder.GetAttributeId(
+                    dracoGeometry,
+                    decoderModule[attributeName]
+                );
+                if (attributeID != -1) {
+                    let attribute = decoder.GetAttribute(dracoGeometry, attributeID);
+                    let bufferView = this.decodeAttributeBufferView(
+                        decoderModule,
+                        decoder,
+                        dracoGeometry,
+                        key,
+                        attribute,
+                        attributeAccessors[key]
+                    );
+                    attributeAccessors[key].bufferView = bufferView;
+                }
+            }
+        }
+
+        return new Primitive(indicesAccessor, material, mode, attributeAccessors);
+    }
+
+    static decodeIndexBufferView(decoderModule, decoder, dracoGeometry, indicesAccessor) {
+        const byteLength = indicesAccessor.count * 2;
+        const ptr = decoderModule._malloc(byteLength);
+        decoder.GetTrianglesUInt16Array(dracoGeometry, byteLength, ptr);
+        const indexBuffer = new Int8Array(decoderModule.HEAP8.buffer, ptr, byteLength).slice();
+        decoderModule._free(ptr);
+        let buffer = new Buffer(indexBuffer.buffer);
+        return new BufferView({ buffer: 0 }, [buffer]);
+    }
+
+    static decodeAttributeBufferView(
+        decoderModule,
+        decoder,
+        dracoGeometry,
+        attributeName,
+        attribute,
+        attributeAccessor
+    ) {
+        const attributeTypes = {
+            POSITION: Float32Array,
+            NORMAL: Float32Array,
+            COLOR: Float32Array,
+            TEXCOORD_0: Float32Array,
+            TANGENT: Float32Array,
+        };
+        const AttributeType = attributeTypes[attributeName];
+
+        const byteLength = attributeAccessor.count * attributeAccessor.elementSize * 4;
+        const dataType = this.getDracoDataType(decoderModule, AttributeType);
+        const ptr = decoderModule._malloc(byteLength);
+        decoder.GetAttributeDataArrayForAllPoints(
+            dracoGeometry,
+            attribute,
+            dataType,
+            byteLength,
+            ptr
+        );
+
+        const attributeBuffer = new Int8Array(decoderModule.HEAP8.buffer, ptr, byteLength).slice();
+        decoderModule._free(ptr);
+        let buffer = new Buffer(attributeBuffer.buffer);
+        return new BufferView({ buffer: 0 }, [buffer]);
+    }
+
+    static getDracoDataType(decoderModule, attributeType) {
+        switch (attributeType) {
+            case Float32Array:
+                return decoderModule.DT_FLOAT32;
+            case Int8Array:
+                return decoderModule.DT_INT8;
+            case Int16Array:
+                return decoderModule.DT_INT16;
+            case Int32Array:
+                return decoderModule.DT_INT32;
+            case Uint8Array:
+                return decoderModule.DT_UINT8;
+            case Uint16Array:
+                return decoderModule.DT_UINT16;
+            case Uint32Array:
+                return decoderModule.DT_UINT32;
         }
     }
 
@@ -166,14 +297,19 @@ class Primitive {
 }
 
 class Mesh {
-    constructor(gl, mesh, accessors, materials) {
-        this.primitives = mesh.primitives.map((x) => new Primitive(gl, x, accessors, materials));
+    constructor(primitives) {
+        this.primitives = primitives;
+    }
+
+    static async create(gl, mesh, accessors, materials, bufferViews) {
+        let primitives = await Promise.all(
+            mesh.primitives.map((x) => Primitive.create(gl, x, accessors, materials, bufferViews))
+        );
+        return new Mesh(primitives);
     }
 
     render(gl, program) {
-        this.primitives.forEach((primitive) => {
-            primitive.render(gl, program);
-        });
+        this.primitives.forEach((primitive) => primitive.render(gl, program));
     }
 }
 
@@ -253,6 +389,7 @@ class Model {
         let response = await fetch(uri);
         let gltf = await response.json();
         let buffers = await Promise.all(gltf.buffers.map((x) => Buffer.create(x, uri)));
+
         let images = await Promise.all((gltf.images || []).map((x) => createImage(x, uri)));
         let samplers = (gltf.samplers || []).map((x) => new Sampler(gl, x));
         let textures = (gltf.textures || []).map((x) => new Texture(gl, x, samplers, images));
@@ -260,7 +397,9 @@ class Model {
         let bufferViews = gltf.bufferViews.map((x) => new BufferView(x, buffers));
         let accessors = gltf.accessors.map((x) => new Accessor(x, bufferViews));
         let materials = gltf.materials.map((x) => new Material(x, textures));
-        let meshes = gltf.meshes.map((x) => new Mesh(gl, x, accessors, materials));
+        let meshes = await Promise.all(
+            gltf.meshes.map((x) => Mesh.create(gl, x, accessors, materials, bufferViews))
+        );
         let nodes = gltf.nodes.map((x) => new Node(x, meshes));
         nodes.forEach((x) => x.linkChildren(nodes));
         let sceneIndex = gltf.scene || 0;
@@ -273,7 +412,7 @@ function createImage(imageData, modelURI) {
     let image = new Image();
     let uri = imageData.uri;
     if (!imageData.uri.startsWith("data:")) {
-        uri = modelURI.slice(0, modelURI.lastIndexOf('/') + 1) + imageData.uri;
+        uri = modelURI.slice(0, modelURI.lastIndexOf("/") + 1) + imageData.uri;
     }
     return new Promise((resolve, reject) => {
         image.onload = () => resolve(image);
@@ -346,7 +485,7 @@ async function main() {
     }
 
     instanceID = document.URL.slice(document.URL.lastIndexOf("/") + 1);
-    fetch('/player', {
+    fetch("/player", {
         method: "POST",
         body: JSON.stringify({ instanceID: instanceID }),
     })
@@ -361,7 +500,7 @@ async function main() {
     ]);
     let program = new Program(gl, shaders);
 
-    model = await Model.create(gl, "/asset/glTF/BarramundiFish.gltf");
+    model = await Model.create(gl, "/asset/glTF/glTF-Draco/Lantern.gltf");
 
     let then = 0;
     function render(now) {
@@ -383,7 +522,7 @@ async function main() {
 window.onload = main;
 
 function drawScene(gl, program, deltaTime) {
-    gl.clearColor(0.5, 0.5, 0.5, 1.0);
+    gl.clearColor(0.7, 0.4, 0.7, 1.0);
     gl.clearDepth(1.0); // Clear everything
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
     gl.depthFunc(gl.LEQUAL); // Near things obscure far things

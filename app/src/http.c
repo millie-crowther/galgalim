@@ -120,6 +120,20 @@ void route(http_request_t * request, redisContext * redis_context){
         return;
     }
 
+    if (string_equals(request->method, "GET") && string_equals(request->uri, "/draco_gltf.js")){
+        size_t size;
+        char * draco_js = file_read("/static/draco_gltf.js", &size);
+        if (draco_js == NULL){
+            printf("HTTP/1.1 500 Internal Server Error\r\nFailed to load draco library\r\n\r\n");
+            return;
+        }
+
+        printf("HTTP/1.1 200 OK\r\nContent-Type:text/javascript\r\n\r\n%s\r\n", draco_js);
+        free(draco_js);
+        return;
+    }
+
+
     if (string_equals(request->method, "GET") && string_starts_with(request->uri, "/asset/")){
         if (string_contains(request->uri, "..")){
             printf("HTTP/1.1 400 Bad Request\r\n\r\n");
