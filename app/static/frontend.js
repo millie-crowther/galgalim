@@ -327,10 +327,12 @@ class Node {
     constructor(node, meshes) {
         this.mesh = meshes[node.mesh] || null;
         this.childrenIndices = node.children || [];
+
+        let scale = node.scale || [1, 1, 1];
+        let rotation = node.rotation || [0, 0, 0, 1];
+        let translation = node.translation || [0, 0, 0];
         this.matrix = mat4.create();
-        if (node.translation){
-            mat4.translate(this.matrix, this.matrix, node.translation); 
-        }
+        mat4.fromRotationTranslationScale(this.matrix, rotation, translation, scale);
     }
 
     render(gl, program) {
