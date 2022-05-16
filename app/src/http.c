@@ -220,7 +220,7 @@ void http_serve_forever(const char * port, redisContext * redis_context){
             continue;
         }
 
-        *request = (http_request_t){
+        *request = (http_request_t) {
             .clientfd = clientfd,
             .redis_context = redis_context
         };
@@ -229,7 +229,10 @@ void http_serve_forever(const char * port, redisContext * redis_context){
         if (result != 0){
             fprintf(stderr, "Failed to create thread to handle request.\n");
             free(request);
+            continue;
         }
+
+        pthread_detach(request->thread);
     }
 }
 
