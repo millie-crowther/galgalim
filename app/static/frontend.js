@@ -5,8 +5,8 @@ let model = null;
 const DRACO_EXTENSION_NAME = "KHR_draco_mesh_compression";
 
 let camera = {
-    rY: 0.6907963267948958,
-    position:[21.029967867417596,-0.1,-26.533788543144368]
+    rY: 0,
+    position:[ -3.5, 12.600000000000001, 33.29999999999976 ]
 };
 
 function sendJSONRequest(method, uri, payload) {
@@ -22,32 +22,32 @@ function sendJSONRequest(method, uri, payload) {
 
 function sendKeyEvent(event_type, key) {
     let d = 0.1;
-    if (key == "a") {
-        camera.position[0] += d * Math.cos(camera.rY);
-        camera.position[2] += d * Math.sin(camera.rY);
-    }
-
-    if (key == "d") {
-        camera.position[0] -= d * Math.cos(camera.rY);
-        camera.position[2] -= d * Math.sin(camera.rY);
+    if (key == "w") {
+        camera.position[0] -= d * Math.sin(camera.rY );
+        camera.position[2] -= d * Math.cos(camera.rY );
     }
 
     if (key == "s") {
-        camera.position[0] += d * Math.cos(camera.rY - Math.PI / 2);
-        camera.position[2] += d * Math.sin(camera.rY - Math.PI / 2);
+        camera.position[0] += d * Math.sin(camera.rY );
+        camera.position[2] += d * Math.cos(camera.rY );
     }
 
-    if (key == "w") {
-        camera.position[0] -= d * Math.cos(camera.rY - Math.PI / 2);
-        camera.position[2] -= d * Math.sin(camera.rY - Math.PI / 2);
+    if (key == "a") {
+        camera.position[0] += d * Math.sin(camera.rY - Math.PI/2);
+        camera.position[2] += d * Math.cos(camera.rY- Math.PI/2);
+    }
+
+    if (key == "d") {
+        camera.position[0] -= d * Math.sin(camera.rY- Math.PI/2);
+        camera.position[2] -= d * Math.cos(camera.rY- Math.PI/2);
     }
 
     if (key == "q") {
-        camera.position[1] -= d;
+        camera.position[1] += d;
     }
 
     if (key == "e") {
-        camera.position[1] += d;
+        camera.position[1] -= d;
     }
 
     sendJSONRequest("POST", "/event", {
@@ -327,9 +327,16 @@ class Node {
     constructor(node, meshes) {
         this.mesh = meshes[node.mesh] || null;
         this.childrenIndices = node.children || [];
+        this.matrix = mat4.create();
+        if (node.translation){
+            mat4.translate(this.matrix, this.matrix, node.translation); 
+        }
     }
 
     render(gl, program) {
+        let modelMatrixLocation = gl.getUniformLocation(program.program, "modelMatrix");
+        gl.uniformMatrix4fv(modelMatrixLocation, false, this.matrix);
+
         if (this.mesh) {
             this.mesh.render(gl, program);
         }
@@ -550,28 +557,26 @@ function drawScene(gl, program, deltaTime) {
 
     // Set the drawing position to the "identity" point, which is
     // the center of the scene.
-    const modelViewMatrix = mat4.create();
-
-    // Now move the drawing position a bit to where we want to
-    // start drawing the square.
+    const viewMatrix = mat4.create();
+    mat4.translate(
+        viewMatrix, // destination matrix
+        viewMatrix, // matrix to translate
+        camera.position
+    ); // amount to translate
     mat4.rotate(
-        modelViewMatrix, // destination matrix
-        modelViewMatrix, // matrix to rotate
+        viewMatrix, // destination matrix
+        viewMatrix, // matrix to rotate
         camera.rY, // amount to rotate in radians
         [0, 1, 0]
     );
-    mat4.translate(
-        modelViewMatrix, // destination matrix
-        modelViewMatrix, // matrix to translate
-        camera.position
-    ); // amount to translate
+    mat4.invert(viewMatrix, viewMatrix);
     gl.useProgram(program.program);
 
     let projectionMatrixLocation = gl.getUniformLocation(program.program, "uProjectionMatrix");
-    let modelViewMatrixLocation = gl.getUniformLocation(program.program, "uModelViewMatrix");
+    let viewMatrixLocation = gl.getUniformLocation(program.program, "viewMatrix");
 
     gl.uniformMatrix4fv(projectionMatrixLocation, false, projectionMatrix);
-    gl.uniformMatrix4fv(modelViewMatrixLocation, false, modelViewMatrix);
+    gl.uniformMatrix4fv(viewMatrixLocation, false, viewMatrix);
 
     model.render(gl, program);
 }
