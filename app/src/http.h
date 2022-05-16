@@ -13,11 +13,13 @@ typedef struct http_request_t {
     const char * query_parameters;
     const char * headers;
     const char * payload;
+    redisContext * redis_context;
+    int clientfd;
+    pthread_t thread;
 } http_request_t;
 
 void http_build_request(http_request_t * request, char * buffer);
 int http_start_listening(const char * port);
 void http_serve_forever(const char * port, redisContext * redis_context);
-void http_close_socket(const int file_descriptor);
 
 #endif

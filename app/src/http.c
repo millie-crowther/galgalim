@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <pthread.h>
 
 #include "array.h"
 #include "file.h"
@@ -34,7 +35,7 @@ bool instance_exists(redisContext * redis_context, const char * instance_id){
     return is_found;
 }
 
-bool route_instance(http_request_t * request, redisContext * redis_context, FILE * output){
+bool route_instance(http_request_t * request, FILE * output){
     if (string_equals(request->method, "POST") && string_equals(request->uri, "/instance")){
         char instance_id[UUID_STRING_LENGTH];
         uuid_t uuid;
@@ -42,7 +43,7 @@ bool route_instance(http_request_t * request, redisContext * redis_context, FILE
         random_uuid(&random, &uuid);
         random_free(&random);
         uuid_to_string(&uuid, instance_id);
-        redisReply * reply = redisCommand(redis_context, "SADD instances %s", instance_id);
+        redisReply * reply = redisCommand(request->redis_context, "SADD instances %s", instance_id);
         
         freeReplyObject(reply);
         fprintf(output, "HTTP/1.1 201 Created\r\n\r\n{\"ID\":\"%s\"}\r\n", instance_id);
@@ -50,7 +51,7 @@ bool route_instance(http_request_t * request, redisContext * redis_context, FILE
 
     } else if (string_equals(request->method, "GET") && string_starts_with(request->uri, "/instance/")){
         const char * instance_id = request->uri + strlen("/instance/");
-        if (instance_exists(redis_context, instance_id)){
+        if (instance_exists(request->redis_context, instance_id)){
             fprintf(output, "HTTP/1.1 200 OK\r\n\r\n%s\r\n", game_html);
         } else {
             fprintf(output, "HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
@@ -61,7 +62,7 @@ bool route_instance(http_request_t * request, redisContext * redis_context, FILE
     return false;
 }
 
-bool route_player(http_request_t * request, redisContext * redis_context, FILE * output){
+bool route_player(http_request_t * request, FILE * output){
     if (string_equals(request->method, "POST") && string_equals(request->uri, "/player")){
         json_t json = json_load(request->payload);
         bool is_error = json_get_type(json) != JSON_TYPE_DICTIONARY;
@@ -73,7 +74,7 @@ bool route_player(http_request_t * request, redisContext * redis_context, FILE *
         } 
 
         const char * instance_id = json_get_string(instance_id_json);
-        if (!instance_exists(redis_context, instance_id)){
+        if (!instance_exists(request->redis_context, instance_id)){
             fprintf(output, "HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
             return true; 
         }
@@ -84,7 +85,7 @@ bool route_player(http_request_t * request, redisContext * redis_context, FILE *
         random_uuid(&random, &uuid);
         random_free(&random);
         uuid_to_string(&uuid, player_id);
-        redisReply * reply = redisCommand(redis_context, "SADD /instance/%s/players %s", instance_id, player_id);
+        redisReply * reply = redisCommand(request->redis_context, "SADD /instance/%s/players %s", instance_id, player_id);
         freeReplyObject(reply);
         fprintf(output, "HTTP/1.1 201 Created\r\n\r\n{\"instanceID\":\"%s\",\"ID\":\"%s\"}\r\n", instance_id, player_id);
         json_free(&json);
@@ -94,7 +95,7 @@ bool route_player(http_request_t * request, redisContext * redis_context, FILE *
     return false;
 }
 
-void route(http_request_t * request, redisContext * redis_context, FILE * output){
+void route(http_request_t * request, FILE * output){
     if (string_equals(request->method, "GET") && string_equals(request->uri, "/")){
         fprintf(output, "HTTP/1.1 200 OK\r\n\r\n%s", homepage_html);
         return; 
@@ -153,20 +154,45 @@ void route(http_request_t * request, redisContext * redis_context, FILE * output
         return;
     }
 
-    if (route_instance(request, redis_context, output)){
+    if (route_instance(request, output)){
         return;
     }
 
-    if (route_player(request, redis_context, output)){
+    if (route_player(request, output)){
         return;
     }
 
     fprintf(output, "HTTP/1.1 404 Not Found\r\n\r\nThe requested page was not found.\r\n");
 }
 
-void http_close_socket(const int file_descriptor){
-    shutdown(file_descriptor, SHUT_RDWR); 
-    close(file_descriptor);
+void * http_handle_request_thread_function(void * data){
+    http_request_t * request = (http_request_t *) data;
+    char * buffer = calloc(BUFFER_SIZE + 1, 1);
+    int received_bytes = recv(request->clientfd, buffer, BUFFER_SIZE, 0);
+    buffer[received_bytes] = '\0';
+
+    if (received_bytes < 0){
+        fprintf(stderr, "Error receiving data from socket.\n");
+
+    } else if (received_bytes == 0){    
+        fprintf(stderr, "Client disconnected unexpectedly.\n");
+
+    } else {
+        http_build_request(request, buffer);
+
+        FILE * output = fdopen(request->clientfd, "w");
+        if (output != NULL){
+            route(request, output);
+            fflush(output);
+            shutdown(STDOUT_FILENO, SHUT_WR);
+            close(STDOUT_FILENO);
+        }
+    }
+
+    shutdown(request->clientfd, SHUT_RDWR); 
+    close(request->clientfd);
+    free(request);
+    return NULL;
 }
 
 void http_serve_forever(const char * port, redisContext * redis_context){
@@ -184,41 +210,23 @@ void http_serve_forever(const char * port, redisContext * redis_context){
         clientfd = accept(listenfd, (struct sockaddr *) &client_address, &address_length);
 
         if (clientfd < 0){
-            fprintf(stderr, "Error accepting socket connection.\n");
+            fprintf(stderr, "Failed to accept socket connection.\n");
+            continue;
+        } 
 
-        } else {
-            pid_t process_id = fork();
-            if (process_id < 0){
-                fprintf(stderr, "Error forking new process to handle request.\n");
-                http_close_socket(clientfd);
+        http_request_t * request = malloc(sizeof(http_request_t));
+        if (request == NULL){
+            fprintf(stderr, "Failed to allocate memory for request object.\n");
+            continue;
+        }
 
-            } else if (process_id == 0){
-                char * buffer = calloc(BUFFER_SIZE + 1, 1);
-                int received_bytes = recv(clientfd, buffer, BUFFER_SIZE, 0);
-                buffer[received_bytes] = '\0';
+        request->clientfd = clientfd;
+        request->redis_context = redis_context;
 
-                if (received_bytes < 0){
-                    fprintf(stderr, "Error receiving data from socket.\n");
-
-                } else if (received_bytes == 0){    
-                    fprintf(stderr, "Client disconnected unexpectedly.\n");
-
-                } else {
-                    http_request_t request;
-                    http_build_request(&request, buffer);
-
-                    FILE * output = fdopen(clientfd, "w");
-                    if (output != NULL){
-                        route(&request, redis_context, output);
-                        fflush(output);
-                        shutdown(STDOUT_FILENO, SHUT_WR);
-                        close(STDOUT_FILENO);
-                    }
-                }
-
-                http_close_socket(clientfd);
-                exit(0);
-            }
+        int result = pthread_create(&request->thread, NULL, http_handle_request_thread_function, (void *) request);
+        if (result != 0){
+            fprintf(stderr, "Failed to create thread to handle request.\n");
+            free(request);
         }
     }
 }
