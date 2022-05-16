@@ -220,8 +220,10 @@ void http_serve_forever(const char * port, redisContext * redis_context){
             continue;
         }
 
-        request->clientfd = clientfd;
-        request->redis_context = redis_context;
+        *request = (http_request_t){
+            .clientfd = clientfd,
+            .redis_context = redis_context
+        };
 
         int result = pthread_create(&request->thread, NULL, http_handle_request_thread_function, (void *) request);
         if (result != 0){
