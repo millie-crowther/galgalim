@@ -6,7 +6,7 @@ const DRACO_EXTENSION_NAME = "KHR_draco_mesh_compression";
 
 let camera = {
     rY: 0,
-    position:[ -3.5, 12.600000000000001, 33.29999999999976 ]
+    position: [-3.5, 12.600000000000001, 33.29999999999976],
 };
 
 function sendJSONRequest(method, uri, payload) {
@@ -23,23 +23,23 @@ function sendJSONRequest(method, uri, payload) {
 function sendKeyEvent(event_type, key) {
     let d = 0.1;
     if (key == "w") {
-        camera.position[0] -= d * Math.sin(camera.rY );
-        camera.position[2] -= d * Math.cos(camera.rY );
+        camera.position[0] -= d * Math.sin(camera.rY);
+        camera.position[2] -= d * Math.cos(camera.rY);
     }
 
     if (key == "s") {
-        camera.position[0] += d * Math.sin(camera.rY );
-        camera.position[2] += d * Math.cos(camera.rY );
+        camera.position[0] += d * Math.sin(camera.rY);
+        camera.position[2] += d * Math.cos(camera.rY);
     }
 
     if (key == "a") {
-        camera.position[0] += d * Math.sin(camera.rY - Math.PI/2);
-        camera.position[2] += d * Math.cos(camera.rY- Math.PI/2);
+        camera.position[0] += d * Math.sin(camera.rY - Math.PI / 2);
+        camera.position[2] += d * Math.cos(camera.rY - Math.PI / 2);
     }
 
     if (key == "d") {
-        camera.position[0] -= d * Math.sin(camera.rY- Math.PI/2);
-        camera.position[2] -= d * Math.cos(camera.rY- Math.PI/2);
+        camera.position[0] -= d * Math.sin(camera.rY - Math.PI / 2);
+        camera.position[2] -= d * Math.cos(camera.rY - Math.PI / 2);
     }
 
     if (key == "q") {
@@ -90,7 +90,8 @@ class BufferView {
     constructor(bufferView, buffers) {
         this.buffer = buffers[bufferView.buffer];
         this.byteOffset = bufferView.byteOffset || 0;
-        this.byteLength = bufferView.byteLength || this.buffer.arrayBuffer.byteLength - this.byteOffset;
+        this.byteLength =
+            bufferView.byteLength || this.buffer.arrayBuffer.byteLength - this.byteOffset;
         this.byteStride = bufferView.byteStride || 0;
     }
 }
@@ -180,7 +181,12 @@ class Primitive {
                 throw new Error("Draco decoding failed: " + decodingStatus.error_msg());
             }
 
-            indicesAccessor.bufferView = this.decodeIndexBufferView(decoderModule, decoder, dracoGeometry, indicesAccessor);
+            indicesAccessor.bufferView = this.decodeIndexBufferView(
+                decoderModule,
+                decoder,
+                dracoGeometry,
+                indicesAccessor
+            );
             for (let key in dracoExtension.attributes) {
                 let attributeName = key == "TEXCOORD_0" ? "TEX_COORD" : key;
                 let attributeID = decoder.GetAttributeId(
@@ -269,10 +275,16 @@ class Primitive {
     }
 
     render(gl, program) {
+        const textures = [
+            "colourTexture",
+            // 'normalTexture'
+        ];
         if (this.material) {
-            if (this.material.colourTexture) {
-                this.material.colourTexture.bind(gl, 0, program.uniforms.colourTexture);
-            }
+            textures
+                .filter((texture) => this.material[texture])
+                .forEach((texture) =>
+                    this.material[texture].bind(gl, 0, program.uniforms[texture])
+                );
         }
         this.attributeAccessors.POSITION.bindAttribute(gl, program.attributes.position);
         this.attributeAccessors.TEXCOORD_0.bindAttribute(gl, program.attributes.textureCoordinate);
@@ -319,7 +331,8 @@ class Material {
         if (material.pbrMetallicRoughness && material.pbrMetallicRoughness.baseColorTexture) {
             this.colourTexture = textures[material.pbrMetallicRoughness.baseColorTexture.index];
         }
-        // TODO
+        this.normalTexture = textures[material.normalTexture?.index] || null;
+        console.log("normal texture ", this.normalTexture);
     }
 }
 

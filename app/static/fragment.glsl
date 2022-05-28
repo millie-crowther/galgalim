@@ -3,6 +3,7 @@
 precision highp float;
 
 uniform sampler2D colourTexture;
+uniform sampler2D normalTexture;
 
 varying vec2 textureCoordinate;
 
