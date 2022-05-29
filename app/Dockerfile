@@ -1,20 +1,19 @@
 FROM alpine:3.15.3
 
 # install dependencies
-RUN apk add --no-cache make cmake g++ musl-dev git libuv-dev libressl-dev zlib-dev
+RUN apk add --no-cache make cmake g++ musl-dev git libuv-dev libressl-dev zlib-dev libstdc++
+
+WORKDIR "/"
+RUN git clone https://github.com/datastax/cpp-driver.git
+RUN cd cpp-driver && mkdir build && cd build && cmake .. && make && make install && cd / && rm -rf cpp-driver
 
 # copy in source code
 COPY src /src
 
 # build app
 WORKDIR "/src"
-RUN if [ -d hiredis ]; then cd hiredis && git pull && cd ..; else git clone https://github.com/redis/hiredis.git; fi
-RUN if [ -d cpp-driver ]; then cd cpp-driver && git pull && cd ..; else git clone https://github.com/datastax/cpp-driver.git; fi
-RUN cd cpp-driver && mkdir build && cd build && cmake .. && make && make install && cd ../..
+RUN if [ -d hiredis ]; then echo "hiredis already present"; else git clone https://github.com/redis/hiredis.git; fi
 WORKDIR "/"
-RUN ls /usr/local
-RUN ls /usr/local/include
-RUN ls /usr/local/lib
 RUN cmake src
 RUN make
 

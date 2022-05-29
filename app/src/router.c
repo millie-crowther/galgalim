@@ -1,7 +1,9 @@
 #include "router.h"
 
 #include <stdlib.h>
+#include <string.h>
 
+#include "data_manager.h"
 #include "file.h"
 #include "random.h"
 
