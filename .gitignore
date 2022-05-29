@@ -73,3 +73,6 @@ node_modules
 
 *.rdb
 hiredis
+cpp-driver
+secure-connect-galgalim-db
+asset
