@@ -7,8 +7,9 @@ WORKDIR "/"
 RUN git clone https://github.com/datastax/cpp-driver.git
 RUN cd cpp-driver && mkdir build && cd build && cmake .. && make && make install && cd / && rm -rf cpp-driver
 
-# copy in source code
+# copy in source code and security key
 COPY src /src
+COPY secure-connect-galgalim-db.zip /secure-connect-galgalim-db.zip
 
 # build app
 WORKDIR "/src"

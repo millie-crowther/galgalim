@@ -73,6 +73,5 @@ node_modules
 
 *.rdb
 hiredis
-cpp-driver
-secure-connect-galgalim-db
+secure-connect-galgalim-db.zip
 asset

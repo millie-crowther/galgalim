@@ -42,12 +42,13 @@ int main(int argc, char* argv[]) {
     CassSession * session = cass_session_new();
 
      /* Setup driver to connect to the cloud using the secure connection bundle */
-     const char * secure_connect_bundle = "<</PATH/TO/>>secure-connect-galgalim-db.zip";
+     const char * secure_connect_bundle = "/secure-connect-galgalim-db.zip";
      if (cass_cluster_set_cloud_secure_connection_bundle(cluster, secure_connect_bundle) != CASS_OK) {
          fprintf(stderr, "Unable to configure cloud using the secure connection bundle: %s\n",
                  secure_connect_bundle);
          return 1;
      }
+     
 
      /* Set credentials provided when creating your database */
      cass_cluster_set_credentials(cluster, "<<CLIENT ID>>", "<<CLIENT SECRET>>");
