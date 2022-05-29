@@ -35,8 +35,21 @@ int main() {
 */
 #include <cassandra.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+const char * get_environment_variable(const char * variable){
+    const char * value = getenv(variable);
+    if (value == NULL || string_equals(value, "")){
+        fprintf(stderr, "Failed to read environment variable '%s'\n", variable);
+        exit(1);
+    }
+    return value;
+}
 
 int main(int argc, char* argv[]) {
+    const char * client_id = get_environment_variable("CASSANDRA_CLIENT_ID");
+    const char * client_secret = get_environment_variable("CASSANDRA_CLIENT_SECRET");
+
     /* Setup and connect to cluster */
     CassCluster * cluster = cass_cluster_new();
     CassSession * session = cass_session_new();
@@ -48,10 +61,10 @@ int main(int argc, char* argv[]) {
                  secure_connect_bundle);
          return 1;
      }
-     
+
 
      /* Set credentials provided when creating your database */
-     cass_cluster_set_credentials(cluster, "<<CLIENT ID>>", "<<CLIENT SECRET>>");
+     cass_cluster_set_credentials(cluster, client_id, client_secret);
 
      /* Increase the connection timeout */
      cass_cluster_set_connect_timeout(cluster, 10000);

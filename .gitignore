@@ -75,3 +75,5 @@ node_modules
 hiredis
 secure-connect-galgalim-db.zip
 asset
+secrets
+.env
