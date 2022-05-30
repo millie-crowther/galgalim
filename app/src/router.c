@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "data_manager.h"
+#include "model.h"
 #include "file.h"
 #include "random.h"
 
@@ -43,12 +43,12 @@ bool route_instance(http_request_t * request, FILE * output){
         return true;
 
     } else if (string_equals(request->method, "GET") && string_starts_with(request->uri, "/instance/")){
-        const char * instance_id = request->uri + strlen("/instance/");
-        if (instance_exists(request->redis_context, instance_id)){
+        // const char * instance_id = request->uri + strlen("/instance/");
+        // if (instance_exists(request->redis_context, instance_id)){
             fprintf(output, "HTTP/1.1 200 OK\r\n\r\n%s\r\n", game_html);
-        } else {
-            fprintf(output, "HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
-        }
+        // } else {
+        //     fprintf(output, "HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
+        // }
         return true; 
     }
 
@@ -67,10 +67,10 @@ bool route_player(http_request_t * request, FILE * output){
         } 
 
         const char * instance_id = json_get_string(instance_id_json);
-        if (!instance_exists(request->redis_context, instance_id)){
-            fprintf(output, "HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
-            return true; 
-        }
+        // if (!instance_exists(request->redis_context, instance_id)){
+        //     fprintf(output, "HTTP/1.1 404 Not Found\r\n\r\nUnable to find instance with id %s\r\n", instance_id);
+        //     return true; 
+        // }
 
         char player_id[UUID_STRING_LENGTH];
         uuid_t uuid;

@@ -7,10 +7,11 @@ set(SOURCES
     main.c
 
     array.c
+    database.c
     file.c
     server.c
     router.c
-    data_manager.c
+    model.c
     random.c
     string.c
 )
