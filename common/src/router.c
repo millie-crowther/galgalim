@@ -6,7 +6,7 @@
 #include "model.h"
 #include "file.h"
 #include "random.h"
-
+/*
 char * homepage_html;
 char * game_html;
 char * frontend_js;
@@ -36,7 +36,7 @@ bool route_instance(http_request_t * request, FILE * output){
         random_uuid(&random, &uuid);
         random_free(&random);
         uuid_to_string(&uuid, instance_id);
-        redisReply * reply = redisCommand(request->redis_context, "SADD instances %s", instance_id);
+        redisReply * reply = redisCommand(request->db, "SADD instances %s", instance_id);
         
         freeReplyObject(reply);
         fprintf(output, "HTTP/1.1 201 Created\r\n\r\n{\"ID\":\"%s\"}\r\n", instance_id);
@@ -78,7 +78,7 @@ bool route_player(http_request_t * request, FILE * output){
         random_uuid(&random, &uuid);
         random_free(&random);
         uuid_to_string(&uuid, player_id);
-        redisReply * reply = redisCommand(request->redis_context, "SADD /instance/%s/players %s", instance_id, player_id);
+        redisReply * reply = redisCommand(request->db, "SADD /instance/%s/players %s", instance_id, player_id);
         freeReplyObject(reply);
         fprintf(output, "HTTP/1.1 201 Created\r\n\r\n{\"instanceID\":\"%s\",\"ID\":\"%s\"}\r\n", instance_id, player_id);
         json_free(&json);
@@ -156,3 +156,4 @@ void route(http_request_t * request, FILE * output){
 
     fprintf(output, "HTTP/1.1 404 Not Found\r\n\r\nThe requested page was not found.\r\n");
 }
+*/

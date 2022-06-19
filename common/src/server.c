@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <pthread.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -23,11 +24,19 @@
 
 #define BUFFER_SIZE 65536
 
+typedef struct http_handle_request_thread_function_data_t {
+    void * db;
+    http_route_handler_t route_handler;
+    pthread_t thread;
+    int clientfd;
+} http_handle_request_thread_function_data_t;
+
 void * http_handle_request_thread_function(void * data){
-    http_request_t * request = (http_request_t *) data;
+    http_handle_request_thread_function_data_t * thread_data = (http_handle_request_thread_function_data_t *) data;
     char * buffer = calloc(BUFFER_SIZE + 1, 1);
-    int received_bytes = recv(request->clientfd, buffer, BUFFER_SIZE, 0);
+    int received_bytes = recv(thread_data->clientfd, buffer, BUFFER_SIZE, 0);
     buffer[received_bytes] = '\0';
+    http_request_t request;
 
     if (received_bytes < 0){
         fprintf(stderr, "Error receiving data from socket.\n");
@@ -36,24 +45,23 @@ void * http_handle_request_thread_function(void * data){
         fprintf(stderr, "Client disconnected unexpectedly.\n");
 
     } else {
-        http_build_request(request, buffer);
+        http_build_request(&request, buffer);
 
-        FILE * output = fdopen(request->clientfd, "w");
+        FILE * output = fdopen(thread_data->clientfd, "w");
         if (output != NULL){
-            route(request, output);
+            thread_data->route_handler(&request, thread_data->db,  output);
             fflush(output);
             shutdown(STDOUT_FILENO, SHUT_WR);
             close(STDOUT_FILENO);
         }
     }
 
-    shutdown(request->clientfd, SHUT_RDWR); 
-    close(request->clientfd);
-    free(request);
+    shutdown(thread_data->clientfd, SHUT_RDWR); 
+    close(thread_data->clientfd);
     return NULL;
 }
 
-void http_serve_forever(const char * port, redisContext * redis_context){
+void http_serve_forever(const char * port, void * db, http_route_handler_t route_handler){
     struct sockaddr_in client_address;
     socklen_t address_length;
     int clientfd;
@@ -72,15 +80,16 @@ void http_serve_forever(const char * port, redisContext * redis_context){
             continue;
         } 
 
-        http_request_t * request = malloc(sizeof(http_request_t));
+        http_handle_request_thread_function_data_t * request = malloc(sizeof(http_handle_request_thread_function_data_t));
         if (request == NULL){
             fprintf(stderr, "Failed to allocate memory for request object.\n");
             continue;
         }
 
-        *request = (http_request_t) {
+        *request = (http_handle_request_thread_function_data_t) {
+            .db = db,
             .clientfd = clientfd,
-            .redis_context = redis_context
+            .route_handler = route_handler
         };
 
         int result = pthread_create(&request->thread, NULL, http_handle_request_thread_function, (void *) request);
@@ -96,11 +105,6 @@ void http_serve_forever(const char * port, redisContext * redis_context){
 
 int http_start_listening(const char *port){
     struct addrinfo hints, *addresses, *address_pointer;
-
-    if (router_load_files() != 0){
-        fprintf(stderr, "Error loading static content\n");
-        return -1;
-    }
 
     // getaddrinfo for host
     memset(&hints, 0, sizeof(hints));

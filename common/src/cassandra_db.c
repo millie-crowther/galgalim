@@ -1,4 +1,4 @@
-#include "database.h"
+#include "cassandra_db.h"
 
 #include <stdlib.h>
 #include <stdio.h>
