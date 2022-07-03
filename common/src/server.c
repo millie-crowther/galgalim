@@ -16,7 +16,6 @@
 #include <sys/wait.h>
 #include <pthread.h>
 
-#include "router.h"
 #include "array.h"
 #include "file.h"
 #include "random.h"
